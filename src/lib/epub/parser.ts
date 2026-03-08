@@ -2,6 +2,7 @@ import { initEpubFile } from '@lingo-reader/epub-parser';
 import type { Book, Chapter } from '../../types';
 import { extractSentences } from './sentenceSplitter';
 import { buildPairs } from './pairBuilder';
+import { extractImmersiveTranslatePairs } from './immersiveTranslate';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EpubFile = any;
@@ -179,7 +180,8 @@ export async function parseEpubFile(file: File): Promise<Book> {
       }
 
       const sentences = extractSentences(html);
-      const pairs = buildPairs(sentences, chapters.length);
+      const pairs = extractImmersiveTranslatePairs(html, chapters.length)
+        ?? buildPairs(sentences, chapters.length);
 
       if (pairs.length === 0) continue;
 
@@ -196,7 +198,8 @@ export async function parseEpubFile(file: File): Promise<Book> {
   if (chapters.length === 0) {
     for (const [spineId, html] of spineHtml) {
       const sentences = extractSentences(html);
-      const pairs = buildPairs(sentences, chapters.length);
+      const pairs = extractImmersiveTranslatePairs(html, chapters.length)
+        ?? buildPairs(sentences, chapters.length);
       if (pairs.length === 0) continue;
 
       // Try to find label from TOC
