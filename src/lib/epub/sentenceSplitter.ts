@@ -1,6 +1,7 @@
 /**
  * Extract text segments from chapter HTML content.
  * Splits on <p> tags and other block elements.
+ * Strips <rt>/<rp> ruby annotations so furigana doesn't merge into text.
  */
 export function extractSentences(html: string): string[] {
   const parser = new DOMParser();
@@ -15,18 +16,29 @@ export function extractSentences(html: string): string[] {
     // Skip elements that contain other block elements (avoid duplication)
     if (block.querySelector('p, div')) continue;
 
-    const text = block.textContent?.trim();
-    if (text && text.length > 0) {
+    const text = getTextWithoutRuby(block);
+    if (text.length > 0) {
       sentences.push(text);
     }
   }
 
   // If no block elements found, try splitting by newlines
   if (sentences.length === 0) {
-    const body = doc.body.textContent ?? '';
+    // Strip <rt>/<rp> before extracting text
+    const clone = doc.body.cloneNode(true) as HTMLElement;
+    for (const rt of clone.querySelectorAll('rt, rp')) rt.remove();
+    const body = clone.textContent ?? '';
     const lines = body.split(/\n+/).map((l) => l.trim()).filter(Boolean);
     sentences.push(...lines);
   }
 
   return sentences;
+}
+
+function getTextWithoutRuby(el: Element): string {
+  const clone = el.cloneNode(true) as HTMLElement;
+  for (const rt of clone.querySelectorAll('rt, rp')) {
+    rt.remove();
+  }
+  return clone.textContent?.trim() ?? '';
 }

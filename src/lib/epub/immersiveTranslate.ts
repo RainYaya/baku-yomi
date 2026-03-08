@@ -1,6 +1,18 @@
 import type { SentencePair } from '../../types';
 
 /**
+ * Get text content from an element, excluding <rt> (ruby annotation) content.
+ * <ruby>漢字<rt>かんじ</rt></ruby> → "漢字" instead of "漢字かんじ"
+ */
+function getTextWithoutRuby(el: Element | HTMLElement): string {
+  const clone = el.cloneNode(true) as HTMLElement;
+  for (const rt of clone.querySelectorAll('rt, rp')) {
+    rt.remove();
+  }
+  return clone.textContent?.trim() ?? '';
+}
+
+/**
  * Try to extract pairs from Immersive Translate format.
  * Pattern: <p>Japanese text<span class="...immersive-translate-target-wrapper...">
  *            <span class="...immersive-translate-target-inner...">Chinese text</span>
@@ -40,13 +52,13 @@ export function extractImmersiveTranslatePairs(
     const chinese = innerSpan?.textContent?.trim();
     if (!chinese) continue;
 
-    // Extract Japanese: clone the block, remove the translate wrapper, get remaining text
+    // Extract Japanese: clone the block, remove the translate wrapper, get text without ruby
     const clone = block.cloneNode(true) as HTMLElement;
     const cloneWrapper = clone.querySelector(
       '[class*="immersive-translate-target-wrapper"]'
     );
     cloneWrapper?.remove();
-    const japanese = clone.textContent?.trim();
+    const japanese = getTextWithoutRuby(clone);
     if (!japanese) continue;
 
     pairs.push({
