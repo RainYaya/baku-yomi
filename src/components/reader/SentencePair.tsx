@@ -2,9 +2,10 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { SentencePair as SentencePairType } from '../../types';
 import { usePracticeStore } from '../../stores/practiceSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
+import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { HiOutlineEye, HiOutlinePaperAirplane } from 'react-icons/hi2';
+import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark } from 'react-icons/hi2';
 
 interface Props {
   pair: SentencePairType;
@@ -38,9 +39,12 @@ export function SentencePair({ pair, active, onActivate }: Props) {
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const setTranslation = usePracticeStore((s) => s.setTranslation);
+  const updatePairChinese = useBookStore((s) => s.updatePairChinese);
   const { analyze, analyzingPairId } = useAnalysis();
   const [error, setError] = useState<string | null>(null);
   const [peeking, setPeeking] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState('');
   const peekTimer = useRef<ReturnType<typeof setTimeout>>();
   const isAnalyzing = analyzingPairId === pair.id;
 
@@ -132,7 +136,56 @@ export function SentencePair({ pair, active, onActivate }: Props) {
         <span className="text-xs font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">
           中
         </span>
-        <p className="text-gray-800 leading-relaxed">{pair.chinese}</p>
+        {editing ? (
+          <div className="flex-1 flex gap-2">
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={2}
+              className="flex-1 border border-blue-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+              onClick={(e) => e.stopPropagation()}
+              autoFocus
+            />
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  updatePairChinese(pair.id, editText);
+                  setEditing(false);
+                }}
+                className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                title="保存"
+              >
+                <HiOutlineCheck size={16} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditing(false);
+                }}
+                className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors"
+                title="取消"
+              >
+                <HiOutlineXMark size={16} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-start gap-1 group/edit">
+            <p className="text-gray-800 leading-relaxed flex-1">{pair.chinese}</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditText(pair.chinese);
+                setEditing(true);
+              }}
+              className="opacity-0 group-hover/edit:opacity-100 p-1 text-gray-400 hover:text-blue-500 rounded transition-all flex-shrink-0"
+              title="编辑中文翻译"
+            >
+              <HiOutlinePencilSquare size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* User translation input */}

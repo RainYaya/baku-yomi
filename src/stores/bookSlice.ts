@@ -12,6 +12,7 @@ interface BookState {
   setCurrentChapter: (index: number) => void;
   getCurrentBook: () => Book | null;
   getCurrentChapter: () => Chapter | null;
+  updatePairChinese: (pairId: string, chinese: string) => void;
 }
 
 export const useBookStore = create<BookState>()(
@@ -51,6 +52,19 @@ export const useBookStore = create<BookState>()(
         if (!book) return null;
         return book.chapters[get().currentChapterIndex] ?? null;
       },
+
+      updatePairChinese: (pairId, chinese) =>
+        set((state) => ({
+          books: state.books.map((book) => ({
+            ...book,
+            chapters: book.chapters.map((ch) => ({
+              ...ch,
+              pairs: ch.pairs.map((p) =>
+                p.id === pairId ? { ...p, chinese } : p
+              ),
+            })),
+          })),
+        })),
     }),
     { name: 'book-store' }
   )
