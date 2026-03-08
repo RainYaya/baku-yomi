@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# EPUB files and extracted resources
+*.epub
+/images/
