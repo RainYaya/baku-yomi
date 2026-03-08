@@ -7,7 +7,7 @@ import { buildPairs } from './pairBuilder';
 type EpubFile = any;
 
 interface TocEntry {
-  label: string;
+  label: unknown;
   href: string;
   id: string;
   children?: TocEntry[];
@@ -144,7 +144,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
     if (!spineId) continue;
     const fragment = entry.href?.split('#')[1] ?? '';
     if (!tocBySpineId.has(spineId)) tocBySpineId.set(spineId, []);
-    tocBySpineId.get(spineId)!.push({ label: entry.label, fragment });
+    tocBySpineId.get(spineId)!.push({ label: extractText(entry.label) ?? '', fragment });
   }
 
   const chapters: Chapter[] = [];
@@ -185,7 +185,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
 
       chapters.push({
         id: `${bookId}-ch${chapters.length}`,
-        title: entry.label || `第${chapters.length + 1}章`,
+        title: extractText(entry.label) || `第${chapters.length + 1}章`,
         index: chapters.length,
         pairs,
       });
@@ -203,7 +203,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
       const tocEntry = flatToc.find((t) => t.id === spineId);
       chapters.push({
         id: `${bookId}-ch${chapters.length}`,
-        title: tocEntry?.label || `第${chapters.length + 1}章`,
+        title: extractText(tocEntry?.label) || `第${chapters.length + 1}章`,
         index: chapters.length,
         pairs,
       });
