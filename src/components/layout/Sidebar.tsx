@@ -1,23 +1,54 @@
 import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
-import { HiOutlineBookOpen, HiOutlineTrash } from 'react-icons/hi2';
+import { HiOutlineBookOpen, HiOutlineTrash, HiOutlinePlusCircle } from 'react-icons/hi2';
+import { useRef } from 'react';
+import { useEpubParser } from '../../hooks/useEpubParser';
 
 export function Sidebar() {
   const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook } =
     useBookStore();
   const currentBook = useBookStore((s) => s.getCurrentBook());
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const { parseFile, parsing } = useEpubParser();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!sidebarOpen) return null;
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file?.name.endsWith('.epub')) parseFile(file);
+    e.target.value = '';
+  };
 
   return (
     <aside className="w-64 bg-gray-50 border-r border-gray-200 h-full overflow-y-auto flex-shrink-0">
       <div className="p-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          书架
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+            书架
+          </h2>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={parsing}
+            className="text-indigo-500 hover:text-indigo-700 disabled:opacity-50 transition-colors"
+            title="导入书籍"
+          >
+            {parsing ? (
+              <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <HiOutlinePlusCircle size={20} />
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".epub"
+            onChange={handleImport}
+            className="hidden"
+          />
+        </div>
         {books.length === 0 ? (
-          <p className="text-sm text-gray-400">还没有导入书籍</p>
+          <p className="text-sm text-gray-400">点击 + 导入书籍</p>
         ) : (
           <ul className="space-y-1">
             {books.map((book) => (
