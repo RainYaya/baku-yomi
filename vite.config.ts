@@ -4,9 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  define: {
-    'process.cwd': '(() => "/")',
-  },
   server: {
     proxy: {
       '/api': 'http://localhost:3003',

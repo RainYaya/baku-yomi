@@ -8,9 +8,11 @@ import { HiOutlineEye, HiOutlinePaperAirplane } from 'react-icons/hi2';
 
 interface Props {
   pair: SentencePairType;
+  active: boolean;
+  onActivate: () => void;
 }
 
-export function SentencePair({ pair }: Props) {
+export function SentencePair({ pair, active, onActivate }: Props) {
   const blindMode = useSettingsStore((s) => s.blindMode);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
@@ -27,7 +29,8 @@ export function SentencePair({ pair }: Props) {
     };
   }, []);
 
-  const handlePeek = useCallback(() => {
+  const handlePeek = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setPeeking(true);
     if (peekTimer.current) clearTimeout(peekTimer.current);
     peekTimer.current = setTimeout(() => setPeeking(false), 3000);
@@ -43,9 +46,45 @@ export function SentencePair({ pair }: Props) {
   }, [analyze, pair, translation]);
 
   const showJapanese = !blindMode || peeking;
+  const hasWork = translation.trim() || analysis;
 
+  // Compact reading mode (not active)
+  if (!active) {
+    return (
+      <div
+        onClick={onActivate}
+        className={`group cursor-pointer rounded-lg px-4 py-2 transition-colors hover:bg-indigo-50/50 ${
+          hasWork ? 'border-l-2 border-indigo-300' : ''
+        }`}
+      >
+        {showJapanese && (
+          <p className="text-gray-800 leading-relaxed">{pair.japanese}</p>
+        )}
+        {blindMode && !peeking && (
+          <span
+            onClick={handlePeek}
+            className="text-xs text-amber-500 hover:text-amber-600 inline-flex items-center gap-1"
+          >
+            <HiOutlineEye size={12} />
+            偷看
+          </span>
+        )}
+        <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
+      </div>
+    );
+  }
+
+  // Expanded practice mode (active)
   return (
-    <div className="border border-gray-200 rounded-xl p-5 space-y-3 bg-white shadow-sm">
+    <div className="border border-indigo-200 rounded-xl p-5 space-y-3 bg-indigo-50/30 shadow-sm">
+      {/* Header - click to collapse */}
+      <div
+        onClick={onActivate}
+        className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-600 select-none"
+      >
+        点击收起
+      </div>
+
       {/* Japanese original */}
       <div className="flex items-start gap-2">
         <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded mt-0.5 flex-shrink-0">
@@ -82,7 +121,8 @@ export function SentencePair({ pair }: Props) {
           onChange={(e) => setTranslation(pair.id, e.target.value)}
           placeholder="在此输入你的日语回译..."
           rows={2}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 resize-none"
+          onClick={(e) => e.stopPropagation()}
         />
         <div className="flex justify-between items-center mt-2">
           <div>
