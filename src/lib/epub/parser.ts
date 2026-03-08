@@ -87,12 +87,36 @@ function findTopLevelAncestor(root: Element, el: Element): Element {
   return current;
 }
 
+/** Safely extract a plain string from metadata values that may be objects like {_, $} */
+function extractText(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && '_' in (value as Record<string, unknown>)) {
+    return String((value as Record<string, unknown>)._);
+  }
+  return String(value);
+}
+
+/** Extract creator name from metadata.creator which is an array of {contributor, fileAs, role} */
+function extractCreator(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.length > 0) {
+    const first = value[0];
+    if (typeof first === 'string') return first;
+    if (typeof first === 'object' && first !== null) {
+      return extractText(first.contributor) ?? extractText(first._) ?? null;
+    }
+  }
+  return extractText(value);
+}
+
 export async function parseEpubFile(file: File): Promise<Book> {
   const epub: EpubFile = await initEpubFile(file);
 
   const metadata = epub.getMetadata?.() ?? epub.metadata ?? {};
-  const title = metadata.title ?? file.name.replace(/\.epub$/i, '');
-  const author = metadata.creator ?? 'Unknown';
+  const title = extractText(metadata.title) ?? file.name.replace(/\.epub$/i, '');
+  const author = extractCreator(metadata.creator) ?? 'Unknown';
   const bookId = `book-${Date.now()}`;
 
   const spine: { id: string; href: string }[] =
