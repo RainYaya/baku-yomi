@@ -1,8 +1,8 @@
 import type { SentencePair } from '../../types';
 
 /**
- * Get text content from an element, excluding <rt> (ruby annotation) content.
- * <ruby>漢字<rt>かんじ</rt></ruby> → "漢字" instead of "漢字かんじ"
+ * Get text content from an element, excluding <rt>/<rp> ruby annotations.
+ * <ruby>漢字<rt>かんじ</rt></ruby> → "漢字"
  */
 function getTextWithoutRuby(el: Element | HTMLElement): string {
   const clone = el.cloneNode(true) as HTMLElement;
@@ -10,6 +10,31 @@ function getTextWithoutRuby(el: Element | HTMLElement): string {
     rt.remove();
   }
   return clone.textContent?.trim() ?? '';
+}
+
+/**
+ * Get innerHTML preserving only ruby-related tags, stripping everything else.
+ * Returns sanitized HTML suitable for dangerouslySetInnerHTML.
+ */
+function getHtmlWithRuby(el: Element | HTMLElement): string {
+  const clone = el.cloneNode(true) as HTMLElement;
+  // Check if there are any ruby elements worth preserving
+  if (!clone.querySelector('ruby')) {
+    return '';
+  }
+  return sanitizeRubyHtml(clone.innerHTML);
+}
+
+/** Keep only ruby/rt/rp tags, strip all other HTML tags */
+function sanitizeRubyHtml(html: string): string {
+  // Replace allowed tags with placeholders, strip the rest, restore
+  return html
+    .replace(/<(\/?)ruby([^>]*)>/gi, '\x01$1ruby$2\x02')
+    .replace(/<(\/?)rt([^>]*)>/gi, '\x01$1rt$2\x02')
+    .replace(/<(\/?)rp([^>]*)>/gi, '\x01$1rp$2\x02')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\x01/g, '<')
+    .replace(/\x02/g, '>');
 }
 
 /**
@@ -52,18 +77,22 @@ export function extractImmersiveTranslatePairs(
     const chinese = innerSpan?.textContent?.trim();
     if (!chinese) continue;
 
-    // Extract Japanese: clone the block, remove the translate wrapper, get text without ruby
+    // Extract Japanese: clone the block, remove the translate wrapper
     const clone = block.cloneNode(true) as HTMLElement;
     const cloneWrapper = clone.querySelector(
       '[class*="immersive-translate-target-wrapper"]'
     );
     cloneWrapper?.remove();
+
     const japanese = getTextWithoutRuby(clone);
     if (!japanese) continue;
+
+    const japaneseHtml = getHtmlWithRuby(clone) || undefined;
 
     pairs.push({
       id: `ch${chapterIndex}-p${pairIndex}`,
       japanese,
+      japaneseHtml,
       chinese,
       chapterIndex,
       pairIndex,

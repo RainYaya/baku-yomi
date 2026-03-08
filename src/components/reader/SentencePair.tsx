@@ -12,6 +12,27 @@ interface Props {
   onActivate: () => void;
 }
 
+/** Render Japanese text, with or without furigana (ruby) */
+function JapaneseText({
+  pair,
+  className,
+}: {
+  pair: SentencePairType;
+  className?: string;
+}) {
+  const showFurigana = useSettingsStore((s) => s.showFurigana);
+
+  if (showFurigana && pair.japaneseHtml) {
+    return (
+      <p
+        className={className}
+        dangerouslySetInnerHTML={{ __html: pair.japaneseHtml }}
+      />
+    );
+  }
+  return <p className={className}>{pair.japanese}</p>;
+}
+
 export function SentencePair({ pair, active, onActivate }: Props) {
   const blindMode = useSettingsStore((s) => s.blindMode);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
@@ -58,7 +79,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
         }`}
       >
         {showJapanese && (
-          <p className="text-gray-800 leading-relaxed">{pair.japanese}</p>
+          <JapaneseText pair={pair} className="text-gray-800 leading-relaxed" />
         )}
         {blindMode && !peeking && (
           <span
@@ -91,7 +112,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
           日
         </span>
         {showJapanese ? (
-          <p className="text-gray-800 leading-relaxed">{pair.japanese}</p>
+          <JapaneseText pair={pair} className="text-gray-800 leading-relaxed" />
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-gray-400 text-sm italic">盲模式已隐藏</span>

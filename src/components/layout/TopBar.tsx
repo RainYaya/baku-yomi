@@ -5,10 +5,12 @@ import {
   HiOutlineCog6Tooth,
   HiOutlineEyeSlash,
   HiOutlineEye,
+  HiOutlineLanguage,
 } from 'react-icons/hi2';
 
 export function TopBar() {
-  const { blindMode, toggleBlindMode } = useSettingsStore();
+  const { blindMode, toggleBlindMode, showFurigana, toggleFurigana } =
+    useSettingsStore();
   const { toggleSidebar, openSettings } = useUIStore();
 
   return (
@@ -41,6 +43,19 @@ export function TopBar() {
             <HiOutlineEye size={16} />
           )}
           {blindMode ? '盲模式 ON' : '盲模式'}
+        </button>
+
+        <button
+          onClick={toggleFurigana}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            showFurigana
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+          title={showFurigana ? '隐藏注音' : '显示注音（振り仮名）'}
+        >
+          <HiOutlineLanguage size={16} />
+          {showFurigana ? '注音 ON' : '注音'}
         </button>
 
         <button

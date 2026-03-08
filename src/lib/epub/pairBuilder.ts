@@ -1,5 +1,6 @@
 import type { SentencePair } from '../../types';
 import { detectLanguage } from './languageDetector';
+import type { ExtractedSentence } from './sentenceSplitter';
 
 /**
  * Build sentence pairs from extracted text lines.
@@ -7,14 +8,14 @@ import { detectLanguage } from './languageDetector';
  * Pairs are formed from adjacent JA+ZH sequences.
  */
 export function buildPairs(
-  sentences: string[],
+  sentences: ExtractedSentence[],
   chapterIndex: number
 ): SentencePair[] {
   const pairs: SentencePair[] = [];
 
-  const tagged = sentences.map((text) => ({
-    text,
-    lang: detectLanguage(text),
+  const tagged = sentences.map((s) => ({
+    ...s,
+    lang: detectLanguage(s.text),
   }));
 
   let i = 0;
@@ -30,6 +31,7 @@ export function buildPairs(
       pairs.push({
         id: `ch${chapterIndex}-p${pairIndex}`,
         japanese: tagged[i].text,
+        japaneseHtml: tagged[i].html,
         chinese: tagged[i + 1].text,
         chapterIndex,
         pairIndex,
@@ -48,6 +50,7 @@ export function buildPairs(
       pairs.push({
         id: `ch${chapterIndex}-p${pairIndex}`,
         japanese: tagged[i + 1].text,
+        japaneseHtml: tagged[i + 1].html,
         chinese: tagged[i].text,
         chapterIndex,
         pairIndex,

@@ -5,9 +5,11 @@ import type { AIProviderConfig } from '../types';
 interface SettingsState {
   aiProvider: AIProviderConfig;
   blindMode: boolean;
+  showFurigana: boolean;
   setAIProvider: (config: Partial<AIProviderConfig>) => void;
   setBlindMode: (enabled: boolean) => void;
   toggleBlindMode: () => void;
+  toggleFurigana: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -19,6 +21,7 @@ export const useSettingsStore = create<SettingsState>()(
         model: 'gpt-4o',
       },
       blindMode: false,
+      showFurigana: true,
 
       setAIProvider: (config) =>
         set((state) => ({
@@ -29,6 +32,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       toggleBlindMode: () =>
         set((state) => ({ blindMode: !state.blindMode })),
+
+      toggleFurigana: () =>
+        set((state) => ({ showFurigana: !state.showFurigana })),
     }),
     { name: 'settings-store' }
   )

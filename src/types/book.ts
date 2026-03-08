@@ -17,6 +17,7 @@ export interface Chapter {
 export interface SentencePair {
   id: string;
   japanese: string;
+  japaneseHtml?: string; // HTML with <ruby> tags preserved for furigana display
   chinese: string;
   chapterIndex: number;
   pairIndex: number;

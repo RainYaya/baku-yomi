@@ -1,35 +1,41 @@
+export interface ExtractedSentence {
+  text: string;
+  html?: string; // HTML with ruby tags preserved, only set when ruby exists
+}
+
 /**
  * Extract text segments from chapter HTML content.
- * Splits on <p> tags and other block elements.
- * Strips <rt>/<rp> ruby annotations so furigana doesn't merge into text.
+ * Strips <rt>/<rp> from plain text but preserves ruby HTML for furigana display.
  */
-export function extractSentences(html: string): string[] {
+export function extractSentences(html: string): ExtractedSentence[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
 
-  const sentences: string[] = [];
+  const sentences: ExtractedSentence[] = [];
 
-  // Get all block-level text elements
   const blocks = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div, li');
 
   for (const block of blocks) {
-    // Skip elements that contain other block elements (avoid duplication)
     if (block.querySelector('p, div')) continue;
 
     const text = getTextWithoutRuby(block);
-    if (text.length > 0) {
-      sentences.push(text);
-    }
+    if (text.length === 0) continue;
+
+    const rubyHtml = block.querySelector('ruby')
+      ? sanitizeRubyHtml(block.innerHTML)
+      : undefined;
+
+    sentences.push({ text, html: rubyHtml });
   }
 
-  // If no block elements found, try splitting by newlines
   if (sentences.length === 0) {
-    // Strip <rt>/<rp> before extracting text
     const clone = doc.body.cloneNode(true) as HTMLElement;
     for (const rt of clone.querySelectorAll('rt, rp')) rt.remove();
     const body = clone.textContent ?? '';
     const lines = body.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-    sentences.push(...lines);
+    for (const line of lines) {
+      sentences.push({ text: line });
+    }
   }
 
   return sentences;
@@ -41,4 +47,14 @@ function getTextWithoutRuby(el: Element): string {
     rt.remove();
   }
   return clone.textContent?.trim() ?? '';
+}
+
+function sanitizeRubyHtml(html: string): string {
+  return html
+    .replace(/<(\/?)ruby([^>]*)>/gi, '\x01$1ruby$2\x02')
+    .replace(/<(\/?)rt([^>]*)>/gi, '\x01$1rt$2\x02')
+    .replace(/<(\/?)rp([^>]*)>/gi, '\x01$1rp$2\x02')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\x01/g, '<')
+    .replace(/\x02/g, '>');
 }
