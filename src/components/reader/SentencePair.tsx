@@ -34,6 +34,57 @@ function JapaneseText({
   return <p className={className}>{pair.japanese}</p>;
 }
 
+/** Floating note popup anchored to the right side */
+function NotePopup({
+  note,
+  pairId,
+  setNote,
+  onClose,
+}: {
+  note: string;
+  pairId: string;
+  setNote: (id: string, text: string) => void;
+  onClose: () => void;
+}) {
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={popupRef}
+      className="absolute right-0 top-0 translate-x-[calc(100%+8px)] z-20 w-64 bg-white border border-amber-200 rounded-xl shadow-lg p-3 space-y-2"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-amber-700">笔记</span>
+        <button
+          onClick={onClose}
+          className="p-0.5 text-gray-400 hover:text-gray-600 rounded"
+        >
+          <HiOutlineXMark size={14} />
+        </button>
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(pairId, e.target.value)}
+        placeholder="在此记录学习笔记..."
+        rows={4}
+        className="w-full border border-amber-200 bg-amber-50/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+        autoFocus
+      />
+    </div>
+  );
+}
+
 export function SentencePair({ pair, active, onActivate }: Props) {
   const blindMode = useSettingsStore((s) => s.blindMode);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
@@ -80,38 +131,70 @@ export function SentencePair({ pair, active, onActivate }: Props) {
   if (!active) {
     return (
       <div
-        onClick={onActivate}
-        className={`group cursor-pointer rounded-lg px-4 py-2 transition-colors hover:bg-indigo-50/50 ${
+        className={`group cursor-pointer rounded-lg px-4 py-2 transition-colors hover:bg-indigo-50/50 relative ${
           hasWork ? 'border-l-2 border-indigo-300' : ''
         }`}
       >
-        {showJapanese && (
-          <JapaneseText pair={pair} className="text-gray-800 leading-relaxed" />
-        )}
-        {blindMode && !peeking && (
-          <span
-            onClick={handlePeek}
-            className="text-xs text-amber-500 hover:text-amber-600 inline-flex items-center gap-1"
+        <div onClick={onActivate}>
+          {showJapanese && (
+            <JapaneseText pair={pair} className="text-gray-800 leading-relaxed" />
+          )}
+          {blindMode && !peeking && (
+            <span
+              onClick={handlePeek}
+              className="text-xs text-amber-500 hover:text-amber-600 inline-flex items-center gap-1"
+            >
+              <HiOutlineEye size={12} />
+              偷看
+            </span>
+          )}
+          <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
+        </div>
+        {note.trim() && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setNoteOpen(!noteOpen);
+            }}
+            className="absolute top-2 right-2 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="查看笔记"
           >
-            <HiOutlineEye size={12} />
-            偷看
-          </span>
+            <HiOutlineChatBubbleBottomCenterText size={14} />
+          </button>
         )}
-        <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
+        {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={() => setNoteOpen(false)} />}
       </div>
     );
   }
 
   // Expanded practice mode (active)
   return (
-    <div className="border border-indigo-200 rounded-xl p-5 space-y-3 bg-indigo-50/30 shadow-sm">
-      {/* Header - click to collapse */}
-      <div
-        onClick={onActivate}
-        className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-600 select-none"
-      >
-        点击收起
+    <div className="border border-indigo-200 rounded-xl p-5 space-y-3 bg-indigo-50/30 shadow-sm relative">
+      {/* Header - click to collapse + note button */}
+      <div className="flex items-center justify-between">
+        <div
+          onClick={onActivate}
+          className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-600 select-none"
+        >
+          点击收起
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setNoteOpen(!noteOpen);
+          }}
+          className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${
+            note.trim()
+              ? 'text-amber-600 bg-amber-50'
+              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <HiOutlineChatBubbleBottomCenterText size={14} />
+          {note.trim() ? '笔记' : '添加笔记'}
+        </button>
       </div>
+
+      {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={() => setNoteOpen(false)} />}
 
       {/* Japanese original */}
       <div className="flex items-start gap-2">
@@ -188,34 +271,6 @@ export function SentencePair({ pair, active, onActivate }: Props) {
               <HiOutlinePencilSquare size={14} />
             </button>
           </div>
-        )}
-      </div>
-
-      {/* Notes */}
-      <div className="pt-1">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setNoteOpen(!noteOpen);
-          }}
-          className={`flex items-center gap-1 text-xs transition-colors ${
-            note.trim()
-              ? 'text-amber-600'
-              : 'text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          <HiOutlineChatBubbleBottomCenterText size={14} />
-          {note.trim() ? '笔记' : '添加笔记'}
-        </button>
-        {(noteOpen || note.trim()) && (
-          <textarea
-            value={note}
-            onChange={(e) => setNote(pair.id, e.target.value)}
-            placeholder="在此记录学习笔记..."
-            rows={2}
-            className="mt-1.5 w-full border border-amber-200 bg-amber-50/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
-            onClick={(e) => e.stopPropagation()}
-          />
         )}
       </div>
 
