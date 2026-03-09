@@ -47,6 +47,19 @@ function NotePopup({
   onClose: () => void;
 }) {
   const popupRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea to fit content
+  const autoResize = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [note, autoResize]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -61,7 +74,7 @@ function NotePopup({
   return (
     <div
       ref={popupRef}
-      className="absolute right-0 top-0 translate-x-[calc(100%+8px)] z-20 w-64 bg-white border border-amber-200 rounded-xl shadow-lg p-3 space-y-2"
+      className="absolute right-0 top-0 translate-x-[calc(100%+8px)] z-20 w-72 bg-white border border-amber-200 rounded-xl shadow-lg p-3 space-y-2"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between">
@@ -74,11 +87,15 @@ function NotePopup({
         </button>
       </div>
       <textarea
+        ref={textareaRef}
         value={note}
-        onChange={(e) => setNote(pairId, e.target.value)}
+        onChange={(e) => {
+          setNote(pairId, e.target.value);
+          autoResize();
+        }}
         placeholder="在此记录学习笔记..."
-        rows={4}
-        className="w-full border border-amber-200 bg-amber-50/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+        rows={3}
+        className="w-full border border-amber-200 bg-amber-50/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none overflow-hidden"
         autoFocus
       />
     </div>
