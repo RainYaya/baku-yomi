@@ -3,16 +3,15 @@ import { persist } from 'zustand/middleware';
 import type { AnalysisResult } from '../types';
 
 interface PracticeState {
-  // Map of pairId -> user's translation text
   translations: Record<string, string>;
-  // Map of pairId -> analysis result
   analyses: Record<string, AnalysisResult>;
-  // Currently analyzing pair ID
+  notes: Record<string, string>;
   analyzingPairId: string | null;
 
   setTranslation: (pairId: string, text: string) => void;
   setAnalysis: (pairId: string, result: AnalysisResult) => void;
   setAnalyzing: (pairId: string | null) => void;
+  setNote: (pairId: string, text: string) => void;
   getTranslation: (pairId: string) => string;
   getAnalysis: (pairId: string) => AnalysisResult | null;
   clearPracticeData: (bookId: string) => void;
@@ -23,6 +22,7 @@ export const usePracticeStore = create<PracticeState>()(
     (set, get) => ({
       translations: {},
       analyses: {},
+      notes: {},
       analyzingPairId: null,
 
       setTranslation: (pairId, text) =>
@@ -39,12 +39,17 @@ export const usePracticeStore = create<PracticeState>()(
       setAnalyzing: (pairId) =>
         set({ analyzingPairId: pairId }),
 
+      setNote: (pairId, text) =>
+        set((state) => ({
+          notes: { ...state.notes, [pairId]: text },
+        })),
+
       getTranslation: (pairId) => get().translations[pairId] ?? '',
 
       getAnalysis: (pairId) => get().analyses[pairId] ?? null,
 
       clearPracticeData: (_bookId) =>
-        set({ translations: {}, analyses: {} }),
+        set({ translations: {}, analyses: {}, notes: {} }),
     }),
     { name: 'practice-store' }
   )

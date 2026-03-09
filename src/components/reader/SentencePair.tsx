@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark } from 'react-icons/hi2';
+import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark, HiOutlineChatBubbleBottomCenterText } from 'react-icons/hi2';
 
 interface Props {
   pair: SentencePairType;
@@ -38,13 +38,16 @@ export function SentencePair({ pair, active, onActivate }: Props) {
   const blindMode = useSettingsStore((s) => s.blindMode);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
+  const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
   const setTranslation = usePracticeStore((s) => s.setTranslation);
+  const setNote = usePracticeStore((s) => s.setNote);
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
   const { analyze, analyzingPairId } = useAnalysis();
   const [error, setError] = useState<string | null>(null);
   const [peeking, setPeeking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
   const peekTimer = useRef<ReturnType<typeof setTimeout>>();
   const isAnalyzing = analyzingPairId === pair.id;
 
@@ -71,7 +74,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
   }, [analyze, pair, translation]);
 
   const showJapanese = !blindMode || peeking;
-  const hasWork = translation.trim() || analysis;
+  const hasWork = translation.trim() || analysis || note.trim();
 
   // Compact reading mode (not active)
   if (!active) {
@@ -185,6 +188,34 @@ export function SentencePair({ pair, active, onActivate }: Props) {
               <HiOutlinePencilSquare size={14} />
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Notes */}
+      <div className="pt-1">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setNoteOpen(!noteOpen);
+          }}
+          className={`flex items-center gap-1 text-xs transition-colors ${
+            note.trim()
+              ? 'text-amber-600'
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <HiOutlineChatBubbleBottomCenterText size={14} />
+          {note.trim() ? '笔记' : '添加笔记'}
+        </button>
+        {(noteOpen || note.trim()) && (
+          <textarea
+            value={note}
+            onChange={(e) => setNote(pair.id, e.target.value)}
+            placeholder="在此记录学习笔记..."
+            rows={2}
+            className="mt-1.5 w-full border border-amber-200 bg-amber-50/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+            onClick={(e) => e.stopPropagation()}
+          />
         )}
       </div>
 
