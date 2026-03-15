@@ -26,68 +26,6 @@ function flattenToc(toc: TocEntry[]): TocEntry[] {
   return result;
 }
 
-/**
- * Split HTML by element IDs (from TOC #fragment anchors).
- * Returns segments of HTML that correspond to each TOC section within the same file.
- */
-function splitHtmlByIds(html: string, ids: string[]): Map<string, string> {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(
-    `<html><body>${html}</body></html>`,
-    'text/html'
-  );
-  const body = doc.body;
-  const result = new Map<string, string>();
-
-  if (ids.length === 0) return result;
-
-  // Find all split-point elements in document order
-  const splitPoints: { id: string; element: Element }[] = [];
-  for (const id of ids) {
-    const el = body.querySelector(`[id="${id}"]`);
-    if (el) splitPoints.push({ id, element: el });
-  }
-
-  if (splitPoints.length === 0) return result;
-
-  // Collect all top-level children in order
-  const allChildren = Array.from(body.children);
-
-  for (let i = 0; i < splitPoints.length; i++) {
-    const { id, element } = splitPoints[i];
-    const nextElement = splitPoints[i + 1]?.element;
-
-    // Find the top-level ancestor of element within body
-    const startAncestor = findTopLevelAncestor(body, element);
-    const endAncestor = nextElement
-      ? findTopLevelAncestor(body, nextElement)
-      : null;
-
-    const startIdx = allChildren.indexOf(startAncestor);
-    const endIdx = endAncestor
-      ? allChildren.indexOf(endAncestor)
-      : allChildren.length;
-
-    if (startIdx === -1) continue;
-
-    const segment = allChildren
-      .slice(startIdx, endIdx)
-      .map((el) => el.outerHTML)
-      .join('');
-    result.set(id, segment);
-  }
-
-  return result;
-}
-
-function findTopLevelAncestor(root: Element, el: Element): Element {
-  let current = el;
-  while (current.parentElement && current.parentElement !== root) {
-    current = current.parentElement;
-  }
-  return current;
-}
-
 /** Safely extract a plain string from metadata values that may be objects like {_, $} */
 function extractText(value: unknown): string | null {
   if (value == null) return null;
@@ -112,6 +50,15 @@ function extractCreator(value: unknown): string | null {
   return extractText(value);
 }
 
+/** Extract pairs from one or more HTML strings combined */
+function extractPairsFromHtml(htmlParts: string[], chapterIndex: number) {
+  const combined = htmlParts.join('\n');
+  return (
+    extractImmersiveTranslatePairs(combined, chapterIndex) ??
+    buildPairs(extractSentences(combined), chapterIndex)
+  );
+}
+
 export async function parseEpubFile(file: File): Promise<Book> {
   const epub: EpubFile = await initEpubFile(file);
 
@@ -124,6 +71,12 @@ export async function parseEpubFile(file: File): Promise<Book> {
     epub.getSpine?.() ?? epub.spine ?? [];
   const toc: TocEntry[] = epub.getToc?.() ?? epub.navMap ?? [];
   const flatToc = flattenToc(toc);
+
+  // Build spine index: id -> position in spine order
+  const spineIndex = new Map<string, number>();
+  for (let i = 0; i < spine.length; i++) {
+    spineIndex.set(spine[i].id, i);
+  }
 
   // Pre-load all spine HTML content, keyed by manifest id
   const spineHtml = new Map<string, string>();
@@ -138,51 +91,29 @@ export async function parseEpubFile(file: File): Promise<Book> {
     }
   }
 
-  // Group TOC entries by their spine id (multiple TOC entries may share one HTML file)
-  const tocBySpineId = new Map<string, { label: string; fragment: string }[]>();
-  for (const entry of flatToc) {
-    const spineId = entry.id;
-    if (!spineId) continue;
-    const fragment = entry.href?.split('#')[1] ?? '';
-    if (!tocBySpineId.has(spineId)) tocBySpineId.set(spineId, []);
-    tocBySpineId.get(spineId)!.push({ label: extractText(entry.label) ?? '', fragment });
-  }
-
   const chapters: Chapter[] = [];
 
   if (flatToc.length > 0) {
-    // ---- TOC-driven chapter building ----
-    // Process in TOC order so chapters follow the book's actual structure
-    const processedSegments = new Set<string>();
+    // Sort TOC entries by their spine position to ensure correct order
+    const tocWithSpinePos = flatToc
+      .filter((e) => e.id && spineIndex.has(e.id))
+      .map((e) => ({ entry: e, spinePos: spineIndex.get(e.id)! }))
+      .sort((a, b) => a.spinePos - b.spinePos);
 
-    for (const entry of flatToc) {
-      const spineId = entry.id;
-      if (!spineId) continue;
+    for (let t = 0; t < tocWithSpinePos.length; t++) {
+      const { entry, spinePos: startPos } = tocWithSpinePos[t];
+      const nextPos = tocWithSpinePos[t + 1]?.spinePos ?? spine.length;
 
-      const fullHtml = spineHtml.get(spineId);
-      if (!fullHtml) continue;
-
-      const fragment = entry.href?.split('#')[1] ?? '';
-      const segmentKey = `${spineId}#${fragment}`;
-      if (processedSegments.has(segmentKey)) continue;
-      processedSegments.add(segmentKey);
-
-      let html = fullHtml;
-
-      // If multiple TOC entries share this spine file, split by fragment
-      const siblings = tocBySpineId.get(spineId) ?? [];
-      if (siblings.length > 1 && fragment) {
-        const fragments = siblings
-          .map((s) => s.fragment)
-          .filter(Boolean);
-        const segments = splitHtmlByIds(fullHtml, fragments);
-        html = segments.get(fragment) ?? fullHtml;
+      // Collect HTML from all spine items between this TOC entry and the next
+      const htmlParts: string[] = [];
+      for (let s = startPos; s < nextPos; s++) {
+        const html = spineHtml.get(spine[s].id);
+        if (html) htmlParts.push(html);
       }
 
-      const sentences = extractSentences(html);
-      const pairs = extractImmersiveTranslatePairs(html, chapters.length)
-        ?? buildPairs(sentences, chapters.length);
+      if (htmlParts.length === 0) continue;
 
+      const pairs = extractPairsFromHtml(htmlParts, chapters.length);
       if (pairs.length === 0) continue;
 
       chapters.push({
@@ -197,12 +128,9 @@ export async function parseEpubFile(file: File): Promise<Book> {
   // Fallback: if TOC produced nothing, fall back to spine-per-chapter
   if (chapters.length === 0) {
     for (const [spineId, html] of spineHtml) {
-      const sentences = extractSentences(html);
-      const pairs = extractImmersiveTranslatePairs(html, chapters.length)
-        ?? buildPairs(sentences, chapters.length);
+      const pairs = extractPairsFromHtml([html], chapters.length);
       if (pairs.length === 0) continue;
 
-      // Try to find label from TOC
       const tocEntry = flatToc.find((t) => t.id === spineId);
       chapters.push({
         id: `${bookId}-ch${chapters.length}`,
