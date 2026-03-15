@@ -5,7 +5,7 @@ import { useRef } from 'react';
 import { useEpubParser } from '../../hooks/useEpubParser';
 
 export function Sidebar() {
-  const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook } =
+  const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook, readingProgress } =
     useBookStore();
   const currentBook = useBookStore((s) => s.getCurrentBook());
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
@@ -85,7 +85,12 @@ export function Sidebar() {
             章节
           </h2>
           <ul className="space-y-1">
-            {currentBook.chapters.map((chapter, idx) => (
+            {currentBook.chapters.map((chapter, idx) => {
+              const progress = readingProgress[chapter.id] ?? 0;
+              const pct = chapter.pairs.length > 0
+                ? Math.round((progress / chapter.pairs.length) * 100)
+                : 0;
+              return (
               <li key={chapter.id}>
                 <button
                   onClick={() => setCurrentChapter(idx)}
@@ -96,12 +101,21 @@ export function Sidebar() {
                   }`}
                 >
                   <span className="truncate block">{chapter.title}</span>
-                  <span className="text-xs text-gray-400">
-                    {chapter.pairs.length} 句对
-                  </span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-400 rounded-full"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-400 w-8 text-right">
+                      {pct}%
+                    </span>
+                  </div>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

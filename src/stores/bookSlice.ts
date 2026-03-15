@@ -6,6 +6,9 @@ interface BookState {
   books: Book[];
   currentBookId: string | null;
   currentChapterIndex: number;
+  // chapterId -> pairIndex (last visible pair)
+  readingProgress: Record<string, number>;
+
   addBook: (book: Book) => void;
   removeBook: (id: string) => void;
   setCurrentBook: (id: string) => void;
@@ -13,6 +16,8 @@ interface BookState {
   getCurrentBook: () => Book | null;
   getCurrentChapter: () => Chapter | null;
   updatePairChinese: (pairId: string, chinese: string) => void;
+  setReadingProgress: (chapterId: string, pairIndex: number) => void;
+  getReadingProgress: (chapterId: string) => number;
 }
 
 export const useBookStore = create<BookState>()(
@@ -21,6 +26,7 @@ export const useBookStore = create<BookState>()(
       books: [],
       currentBookId: null,
       currentChapterIndex: 0,
+      readingProgress: {},
 
       addBook: (book) =>
         set((state) => ({
@@ -65,6 +71,17 @@ export const useBookStore = create<BookState>()(
             })),
           })),
         })),
+
+      setReadingProgress: (chapterId, pairIndex) =>
+        set((state) => ({
+          readingProgress: {
+            ...state.readingProgress,
+            [chapterId]: pairIndex,
+          },
+        })),
+
+      getReadingProgress: (chapterId) =>
+        get().readingProgress[chapterId] ?? 0,
     }),
     { name: 'book-store' }
   )
