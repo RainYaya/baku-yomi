@@ -5,12 +5,15 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
+import { KeywordChips } from './KeywordChips';
 import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark, HiOutlineChatBubbleBottomCenterText } from 'react-icons/hi2';
 
 interface Props {
   pair: SentencePairType;
   active: boolean;
   onActivate: () => void;
+  noteOpen: boolean;
+  onToggleNote: () => void;
 }
 
 /** Render Japanese text, with or without furigana (ruby) */
@@ -102,8 +105,9 @@ function NotePopup({
   );
 }
 
-export function SentencePair({ pair, active, onActivate }: Props) {
+export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote }: Props) {
   const blindMode = useSettingsStore((s) => s.blindMode);
+  const keywordMode = useSettingsStore((s) => s.keywordMode);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
@@ -115,9 +119,14 @@ export function SentencePair({ pair, active, onActivate }: Props) {
   const [peeking, setPeeking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
-  const [noteOpen, setNoteOpen] = useState(false);
+  const [chineseRevealed, setChineseRevealed] = useState(false);
   const peekTimer = useRef<ReturnType<typeof setTimeout>>();
   const isAnalyzing = analyzingPairId === pair.id;
+
+  // Reset chineseRevealed when active pair changes
+  useEffect(() => {
+    setChineseRevealed(false);
+  }, [pair.id]);
 
   useEffect(() => {
     return () => {
@@ -165,13 +174,19 @@ export function SentencePair({ pair, active, onActivate }: Props) {
               偷看
             </span>
           )}
-          <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
+          {keywordMode ? (
+            <div className="mt-1">
+              <KeywordChips chinese={pair.chinese} />
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
+          )}
         </div>
         {note.trim() && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setNoteOpen(!noteOpen);
+              onToggleNote();
             }}
             className="absolute top-2 right-2 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"
             title="查看笔记"
@@ -179,7 +194,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
             <HiOutlineChatBubbleBottomCenterText size={14} />
           </button>
         )}
-        {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={() => setNoteOpen(false)} />}
+        {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={onToggleNote} />}
       </div>
     );
   }
@@ -198,7 +213,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setNoteOpen(!noteOpen);
+            onToggleNote();
           }}
           className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors ${
             note.trim()
@@ -211,7 +226,7 @@ export function SentencePair({ pair, active, onActivate }: Props) {
         </button>
       </div>
 
-      {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={() => setNoteOpen(false)} />}
+      {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={onToggleNote} />}
 
       {/* Japanese original */}
       <div className="flex items-start gap-2">
@@ -272,6 +287,30 @@ export function SentencePair({ pair, active, onActivate }: Props) {
                 <HiOutlineXMark size={16} />
               </button>
             </div>
+          </div>
+        ) : keywordMode ? (
+          <div className="flex-1 space-y-1.5">
+            <KeywordChips
+              chinese={pair.chinese}
+              showReveal
+              onReveal={() => setChineseRevealed(!chineseRevealed)}
+            />
+            {chineseRevealed && (
+              <div className="flex items-start gap-1 group/edit">
+                <p className="text-gray-500 text-sm leading-relaxed flex-1">{pair.chinese}</p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditText(pair.chinese);
+                    setEditing(true);
+                  }}
+                  className="opacity-0 group-hover/edit:opacity-100 p-1 text-gray-400 hover:text-blue-500 rounded transition-all flex-shrink-0"
+                  title="编辑中文翻译"
+                >
+                  <HiOutlinePencilSquare size={14} />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex items-start gap-1 group/edit">

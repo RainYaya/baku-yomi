@@ -6,10 +6,12 @@ interface SettingsState {
   aiProvider: AIProviderConfig;
   blindMode: boolean;
   showFurigana: boolean;
+  keywordMode: boolean;
   setAIProvider: (config: Partial<AIProviderConfig>) => void;
   setBlindMode: (enabled: boolean) => void;
   toggleBlindMode: () => void;
   toggleFurigana: () => void;
+  toggleKeywordMode: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -22,6 +24,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       blindMode: false,
       showFurigana: true,
+      keywordMode: false,
 
       setAIProvider: (config) =>
         set((state) => ({
@@ -35,6 +38,9 @@ export const useSettingsStore = create<SettingsState>()(
 
       toggleFurigana: () =>
         set((state) => ({ showFurigana: !state.showFurigana })),
+
+      toggleKeywordMode: () =>
+        set((state) => ({ keywordMode: !state.keywordMode })),
     }),
     { name: 'settings-store' }
   )

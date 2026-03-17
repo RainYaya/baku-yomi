@@ -6,10 +6,11 @@ import {
   HiOutlineEyeSlash,
   HiOutlineEye,
   HiOutlineLanguage,
+  HiOutlinePuzzlePiece,
 } from 'react-icons/hi2';
 
 export function TopBar() {
-  const { blindMode, toggleBlindMode, showFurigana, toggleFurigana } =
+  const { blindMode, toggleBlindMode, showFurigana, toggleFurigana, keywordMode, toggleKeywordMode } =
     useSettingsStore();
   const { toggleSidebar, openSettings } = useUIStore();
 
@@ -56,6 +57,19 @@ export function TopBar() {
         >
           <HiOutlineLanguage size={16} />
           {showFurigana ? '注音 ON' : '注音'}
+        </button>
+
+        <button
+          onClick={toggleKeywordMode}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            keywordMode
+              ? 'bg-violet-100 text-violet-700'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+          title={keywordMode ? '关闭关键词模式' : '开启关键词模式（用打乱关键词替代完整中文）'}
+        >
+          <HiOutlinePuzzlePiece size={16} />
+          {keywordMode ? '关键词 ON' : '关键词'}
         </button>
 
         <button

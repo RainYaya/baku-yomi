@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
+import { usePracticeStore } from '../../stores/practiceSlice';
+import { useSettingsStore } from '../../stores/settingsSlice';
+import { useAnalysis } from '../../hooks/useAnalysis';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { SentencePair } from './SentencePair';
+import { ShortcutHelp } from './ShortcutHelp';
 import { EpubUploader } from '../import/EpubUploader';
 
 export function ReadingView() {
@@ -9,20 +14,55 @@ export function ReadingView() {
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
   const [activePairId, setActivePairId] = useState<string | null>(null);
+  const [notePairId, setNotePairId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pairRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const restoredRef = useRef<string | null>(null);
 
+  const translations = usePracticeStore((s) => s.translations);
+  const aiProvider = useSettingsStore((s) => s.aiProvider);
+  const { analyze } = useAnalysis();
+
+  // Close note when active pair changes
+  useEffect(() => {
+    setNotePairId(null);
+  }, [activePairId]);
+
+  const handleKeyboardSubmit = useCallback(async () => {
+    if (!activePairId || !currentChapter) return;
+    const pair = currentChapter.pairs.find((p) => p.id === activePairId);
+    if (!pair) return;
+    const text = translations[pair.id] ?? '';
+    if (!text.trim() || !aiProvider.apiKey) return;
+    try {
+      await analyze(pair.id, pair.japanese, pair.chinese, text);
+    } catch {
+      // Error handled by SentencePair's own state
+    }
+  }, [activePairId, currentChapter, translations, aiProvider.apiKey, analyze]);
+
+  const handleToggleNote = useCallback(() => {
+    if (!activePairId) return;
+    setNotePairId((prev) => (prev === activePairId ? null : activePairId));
+  }, [activePairId]);
+
+  const { showHelp, setShowHelp } = useKeyboardShortcuts({
+    pairs: currentChapter?.pairs ?? [],
+    activePairId,
+    setActivePairId,
+    pairRefs,
+    onSubmitTranslation: handleKeyboardSubmit,
+    onToggleNote: handleToggleNote,
+  });
+
   // Restore scroll position when chapter changes
   useEffect(() => {
     if (!currentChapter) return;
-    // Avoid restoring twice for the same chapter
     if (restoredRef.current === currentChapter.id) return;
     restoredRef.current = currentChapter.id;
 
     const savedIndex = getReadingProgress(currentChapter.id);
     if (savedIndex > 0) {
-      // Small delay to let DOM render
       requestAnimationFrame(() => {
         const el = pairRefs.current.get(savedIndex);
         if (el) {
@@ -38,7 +78,6 @@ export function ReadingView() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Find the topmost visible pair
         let topIndex = -1;
         let topY = Infinity;
         for (const entry of entries) {
@@ -133,10 +172,16 @@ export function ReadingView() {
               onActivate={() =>
                 setActivePairId(activePairId === pair.id ? null : pair.id)
               }
+              noteOpen={notePairId === pair.id}
+              onToggleNote={() =>
+                setNotePairId(notePairId === pair.id ? null : pair.id)
+              }
             />
           </div>
         ))}
       </div>
+
+      {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
