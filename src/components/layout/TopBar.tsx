@@ -6,7 +6,7 @@ import {
   HiOutlineEyeSlash,
   HiOutlineEye,
   HiOutlineLanguage,
-  HiOutlinePuzzlePiece,
+  HiOutlineLightBulb,
 } from 'react-icons/hi2';
 
 export function TopBar() {
@@ -66,10 +66,10 @@ export function TopBar() {
               ? 'bg-violet-100 text-violet-700'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}
-          title={keywordMode ? '关闭关键词模式' : '开启关键词模式（用打乱关键词替代完整中文）'}
+          title={keywordMode ? '关闭AI提示模式' : '开启AI提示模式（隐藏中文，用AI语法提示辅助回译）'}
         >
-          <HiOutlinePuzzlePiece size={16} />
-          {keywordMode ? '关键词 ON' : '关键词'}
+          <HiOutlineLightBulb size={16} />
+          {keywordMode ? 'AI提示 ON' : 'AI提示'}
         </button>
 
         <button

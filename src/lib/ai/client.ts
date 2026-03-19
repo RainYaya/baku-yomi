@@ -1,5 +1,33 @@
 import type { AIProviderConfig, AnalysisResult } from '../../types';
-import { buildAnalysisPrompt } from './prompts';
+import { buildAnalysisPrompt, buildHintPrompt } from './prompts';
+
+export async function generateHints(
+  config: AIProviderConfig,
+  original: string,
+  chinese: string
+): Promise<string> {
+  const prompt = buildHintPrompt(original, chinese);
+
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: config.type,
+      apiKey: config.apiKey,
+      model: config.model,
+      baseUrl: config.baseUrl,
+      prompt,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`AI hint generation failed: ${err}`);
+  }
+
+  const data = await response.json();
+  return data.text;
+}
 
 export async function analyzeTranslation(
   config: AIProviderConfig,

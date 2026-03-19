@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { KeywordChips } from './KeywordChips';
+import { HintPanel } from './HintPanel';
 import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark, HiOutlineChatBubbleBottomCenterText } from 'react-icons/hi2';
 
 interface Props {
@@ -175,9 +175,7 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
             </span>
           )}
           {keywordMode ? (
-            <div className="mt-1">
-              <KeywordChips chinese={pair.chinese} />
-            </div>
+            <p className="text-violet-500 text-sm italic">💡 提示模式 — 点击展开获取 AI 提示</p>
           ) : (
             <p className="text-gray-500 text-sm leading-relaxed">{pair.chinese}</p>
           )}
@@ -290,7 +288,9 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
           </div>
         ) : keywordMode ? (
           <div className="flex-1 space-y-1.5">
-            <KeywordChips
+            <HintPanel
+              pairId={pair.id}
+              japanese={pair.japanese}
               chinese={pair.chinese}
               showReveal
               onReveal={() => setChineseRevealed(!chineseRevealed)}
