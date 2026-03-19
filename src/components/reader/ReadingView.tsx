@@ -13,6 +13,7 @@ export function ReadingView() {
   const currentChapter = useBookStore((s) => s.getCurrentChapter());
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
+  const fontZoom = useSettingsStore((s) => s.fontZoom);
   const [activePairId, setActivePairId] = useState<string | null>(null);
   const [notePairId, setNotePairId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -23,7 +24,6 @@ export function ReadingView() {
   const aiProvider = useSettingsStore((s) => s.aiProvider);
   const { analyze } = useAnalysis();
 
-  // Close note when active pair changes
   useEffect(() => {
     setNotePairId(null);
   }, [activePairId]);
@@ -125,7 +125,7 @@ export function ReadingView() {
 
   if (!currentChapter) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="flex items-center justify-center h-full opacity-40">
         请在左侧选择章节
       </div>
     );
@@ -138,50 +138,47 @@ export function ReadingView() {
       : 0;
 
   return (
-    <div ref={containerRef} className="max-w-3xl mx-auto p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-800">
-          {currentChapter.title}
-        </h2>
-        <div className="flex items-center gap-3 mt-1">
-          <p className="text-sm text-gray-400">
-            {currentChapter.pairs.length} 个句对
-          </p>
-          <div className="flex items-center gap-2 flex-1">
-            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-32">
-              <div
-                className="h-full bg-indigo-400 rounded-full transition-all duration-300"
-                style={{ width: `${progressPct}%` }}
+    <>
+      <div
+        ref={containerRef}
+        className="max-w-4xl mx-auto pb-16"
+        style={{ fontSize: `${16 * fontZoom}px` }}
+      >
+        <div>
+          {currentChapter.pairs.map((pair, idx) => (
+            <div
+              key={pair.id}
+              ref={(el) => setPairRef(idx, el)}
+              data-pair-index={idx}
+            >
+              <SentencePair
+                pair={pair}
+                active={activePairId === pair.id}
+                onActivate={() =>
+                  setActivePairId(activePairId === pair.id ? null : pair.id)
+                }
+                noteOpen={notePairId === pair.id}
+                onToggleNote={() =>
+                  setNotePairId(notePairId === pair.id ? null : pair.id)
+                }
               />
             </div>
-            <span className="text-xs text-gray-400">{progressPct}%</span>
-          </div>
+          ))}
         </div>
       </div>
 
-      <div className="space-y-1">
-        {currentChapter.pairs.map((pair, idx) => (
-          <div
-            key={pair.id}
-            ref={(el) => setPairRef(idx, el)}
-            data-pair-index={idx}
-          >
-            <SentencePair
-              pair={pair}
-              active={activePairId === pair.id}
-              onActivate={() =>
-                setActivePairId(activePairId === pair.id ? null : pair.id)
-              }
-              noteOpen={notePairId === pair.id}
-              onToggleNote={() =>
-                setNotePairId(notePairId === pair.id ? null : pair.id)
-              }
-            />
-          </div>
-        ))}
+      {/* Fixed bottom progress bar */}
+      <div
+        className="fixed bottom-0 left-0 w-full h-1 z-20"
+        style={{ backgroundColor: 'rgba(26, 81, 46, 0.1)' }}
+      >
+        <div
+          className="h-full transition-all duration-300"
+          style={{ backgroundColor: 'var(--brand-green)', width: `${progressPct}%` }}
+        />
       </div>
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
-    </div>
+    </>
   );
 }

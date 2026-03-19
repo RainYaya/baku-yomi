@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+:root {
+  --bg-color: #efefef;
+  --brand-green: #1a512e;
+  --brand-green-light: rgba(26, 81, 46, 0.2);
+  --border-style: 1px solid var(--brand-green);
+  --text-base: 16px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(26, 81, 46, 0.3);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-green);
+}

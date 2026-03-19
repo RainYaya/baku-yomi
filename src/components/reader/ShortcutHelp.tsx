@@ -19,31 +19,35 @@ export function ShortcutHelp({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl p-6 w-80 space-y-4"
+        className="w-80 p-6 space-y-4 rounded-sm"
+        style={{ backgroundColor: 'var(--bg-color)', border: 'var(--border-style)', color: 'var(--brand-green)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-bold text-gray-800">键盘快捷键</h3>
+        <h3 className="text-lg font-bold uppercase tracking-wide">键盘快捷键</h3>
         <div className="space-y-2">
           {shortcuts.map(({ keys, desc }) => (
             <div key={desc} className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 {keys.map((key, i) => (
                   <span key={i}>
-                    <kbd className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 text-xs font-mono text-gray-700">
+                    <kbd
+                      className="px-1.5 py-0.5 text-xs font-mono rounded-sm"
+                      style={{ border: 'var(--border-style)', backgroundColor: 'rgba(26, 81, 46, 0.06)' }}
+                    >
                       {key}
                     </kbd>
                     {i < keys.length - 1 && (
-                      <span className="text-gray-400 text-xs mx-0.5">+</span>
+                      <span className="text-xs mx-0.5 opacity-40">+</span>
                     )}
                   </span>
                 ))}
               </div>
-              <span className="text-sm text-gray-600">{desc}</span>
+              <span className="text-sm opacity-70">{desc}</span>
             </div>
           ))}
         </div>
-        <p className="text-xs text-gray-400 text-center">
-          按 <kbd className="bg-gray-100 border border-gray-300 rounded px-1 py-0.5 text-xs font-mono">?</kbd> 或 <kbd className="bg-gray-100 border border-gray-300 rounded px-1 py-0.5 text-xs font-mono">Esc</kbd> 关闭
+        <p className="text-xs text-center opacity-40">
+          按 <kbd className="px-1 py-0.5 text-xs font-mono rounded-sm" style={{ border: 'var(--border-style)' }}>?</kbd> 或 <kbd className="px-1 py-0.5 text-xs font-mono rounded-sm" style={{ border: 'var(--border-style)' }}>Esc</kbd> 关闭
         </p>
       </div>
     </div>

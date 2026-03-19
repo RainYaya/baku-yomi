@@ -1,5 +1,7 @@
 import { useSettingsStore } from '../../stores/settingsSlice';
+import type { LayoutMode } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
+import { useBookStore } from '../../stores/bookSlice';
 import {
   HiOutlineBars3,
   HiOutlineCog6Tooth,
@@ -10,76 +12,104 @@ import {
 } from 'react-icons/hi2';
 
 export function TopBar() {
-  const { blindMode, toggleBlindMode, showFurigana, toggleFurigana, keywordMode, toggleKeywordMode } =
+  const { blindMode, toggleBlindMode, showFurigana, toggleFurigana, keywordMode, toggleKeywordMode, layoutMode, setLayoutMode, changeFontZoom } =
     useSettingsStore();
   const { toggleSidebar, openSettings } = useUIStore();
+  const currentChapter = useBookStore((s) => s.getCurrentChapter());
+  const getReadingProgress = useBookStore((s) => s.getReadingProgress);
+
+  const progressPct = currentChapter && currentChapter.pairs.length > 0
+    ? Math.round((getReadingProgress(currentChapter.id) / currentChapter.pairs.length) * 100)
+    : 0;
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={toggleSidebar}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="切换侧栏"
-        >
-          <HiOutlineBars3 size={20} />
-        </button>
-        <h1 className="text-lg font-bold text-gray-800">双語回訳</h1>
-        <span className="text-xs text-gray-400">Bilingual Back-Translation</span>
+    <header className="flex-shrink-0" style={{ backgroundColor: 'var(--bg-color)' }}>
+      {/* Main header row */}
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: 'var(--border-style)', color: 'var(--brand-green)' }}
+      >
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSidebar}
+            className="p-1 opacity-60 hover:opacity-100 transition-opacity"
+          >
+            <HiOutlineBars3 size={20} />
+          </button>
+          <span className="text-lg tracking-wide uppercase font-medium">
+            {currentChapter?.title || '双語回訳'}
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm uppercase tracking-wide opacity-70">
+            {currentChapter ? `${progressPct}%` : ''}
+          </span>
+          <button
+            onClick={openSettings}
+            className="p-1 opacity-60 hover:opacity-100 transition-opacity"
+          >
+            <HiOutlineCog6Tooth size={20} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={toggleBlindMode}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            blindMode
-              ? 'bg-amber-100 text-amber-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-          title={blindMode ? '关闭盲模式' : '开启盲模式（隐藏日文原文）'}
-        >
-          {blindMode ? (
-            <HiOutlineEyeSlash size={16} />
-          ) : (
-            <HiOutlineEye size={16} />
-          )}
-          {blindMode ? '盲模式 ON' : '盲模式'}
-        </button>
+      {/* Controls row */}
+      <div
+        className="flex items-center justify-between px-4 py-2 text-sm uppercase tracking-wide"
+        style={{ borderBottom: 'var(--border-style)', color: 'var(--brand-green)' }}
+      >
+        <div className="flex items-center gap-5">
+          {/* Layout mode toggles */}
+          <LayoutBtn mode="alternating" current={layoutMode} onClick={setLayoutMode} label="交替" />
+          <LayoutBtn mode="parallel" current={layoutMode} onClick={setLayoutMode} label="并列" />
 
-        <button
-          onClick={toggleFurigana}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            showFurigana
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-          title={showFurigana ? '隐藏注音' : '显示注音（振り仮名）'}
-        >
-          <HiOutlineLanguage size={16} />
-          {showFurigana ? '注音 ON' : '注音'}
-        </button>
+          <span className="w-px h-4 bg-current opacity-20" />
 
-        <button
-          onClick={toggleKeywordMode}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            keywordMode
-              ? 'bg-violet-100 text-violet-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-          title={keywordMode ? '关闭AI提示模式' : '开启AI提示模式（隐藏中文，用AI语法提示辅助回译）'}
-        >
-          <HiOutlineLightBulb size={16} />
-          {keywordMode ? 'AI提示 ON' : 'AI提示'}
-        </button>
+          {/* Feature toggles */}
+          <ToggleBtn active={blindMode} onClick={toggleBlindMode} icon={blindMode ? <HiOutlineEyeSlash size={14} /> : <HiOutlineEye size={14} />} label="盲模式" />
+          <ToggleBtn active={showFurigana} onClick={toggleFurigana} icon={<HiOutlineLanguage size={14} />} label="注音" />
+          <ToggleBtn active={keywordMode} onClick={toggleKeywordMode} icon={<HiOutlineLightBulb size={14} />} label="AI提示" />
+        </div>
 
-        <button
-          onClick={openSettings}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          title="设置"
-        >
-          <HiOutlineCog6Tooth size={20} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => changeFontZoom(-1)}
+            className="opacity-60 hover:opacity-100 transition-opacity font-medium"
+          >
+            A-
+          </button>
+          <button
+            onClick={() => changeFontZoom(1)}
+            className="opacity-60 hover:opacity-100 transition-opacity font-medium"
+          >
+            A+
+          </button>
+        </div>
       </div>
     </header>
+  );
+}
+
+function LayoutBtn({ mode, current, onClick, label }: { mode: LayoutMode; current: LayoutMode; onClick: (m: LayoutMode) => void; label: string }) {
+  const active = mode === current;
+  return (
+    <button
+      onClick={() => onClick(mode)}
+      className={`transition-opacity ${active ? 'opacity-100 font-bold' : 'opacity-50 hover:opacity-80'}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ToggleBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 transition-opacity ${active ? 'opacity-100 font-bold' : 'opacity-50 hover:opacity-80'}`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

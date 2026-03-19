@@ -38,6 +38,18 @@ export function HintPanel({ pairId, japanese, chinese, onReveal, showReveal }: P
     }
   }, [aiProvider, japanese, chinese, pairId, setHint, setHintLoading]);
 
+  const revealBtn = showReveal && onReveal && (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onReveal();
+      }}
+      className="text-xs opacity-50 hover:opacity-100 transition-opacity"
+    >
+      查看原文
+    </button>
+  );
+
   // Already have cached hints
   if (hint) {
     return (
@@ -45,22 +57,12 @@ export function HintPanel({ pairId, japanese, chinese, onReveal, showReveal }: P
         <div className="space-y-1">
           {hint.split('\n').filter(Boolean).map((line, i) => (
             <div key={i} className="flex items-start gap-1.5 text-sm">
-              <HiOutlineLightBulb className="text-violet-500 mt-0.5 flex-shrink-0" size={14} />
-              <span className="text-gray-700">{line}</span>
+              <HiOutlineLightBulb className="mt-0.5 flex-shrink-0 opacity-60" size={14} />
+              <span>{line}</span>
             </div>
           ))}
         </div>
-        {showReveal && onReveal && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onReveal();
-            }}
-            className="text-xs text-violet-500 hover:text-violet-700"
-          >
-            查看原文
-          </button>
-        )}
+        {revealBtn}
       </div>
     );
   }
@@ -68,8 +70,8 @@ export function HintPanel({ pairId, japanese, chinese, onReveal, showReveal }: P
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-violet-500">
-        <div className="w-3.5 h-3.5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center gap-2 text-sm opacity-60">
+        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
         正在生成提示...
       </div>
     );
@@ -83,23 +85,14 @@ export function HintPanel({ pairId, japanese, chinese, onReveal, showReveal }: P
           e.stopPropagation();
           handleGenerate();
         }}
-        className="flex items-center gap-1.5 text-sm text-violet-600 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-sm transition-opacity opacity-70 hover:opacity-100"
+        style={{ border: 'var(--border-style)' }}
       >
         <HiOutlineLightBulb size={14} />
         获取 AI 提示
       </button>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      {showReveal && onReveal && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onReveal();
-          }}
-          className="text-xs text-violet-500 hover:text-violet-700"
-        >
-          查看原文
-        </button>
-      )}
+      {error && <p className="text-xs" style={{ color: '#b91c1c' }}>{error}</p>}
+      {revealBtn}
     </div>
   );
 }
