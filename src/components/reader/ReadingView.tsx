@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
-import { SentencePair } from './SentencePair';
+import { SentencePairCard } from './SentencePairCard';
+import { PracticePanel } from './PracticePanel';
 import { ShortcutHelp } from './ShortcutHelp';
 import { EpubUploader } from '../import/EpubUploader';
 
@@ -14,7 +15,10 @@ export function ReadingView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
 
+  const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
 
   // Restore scroll position when chapter changes
   useEffect(() => {
@@ -27,9 +31,7 @@ export function ReadingView() {
       requestAnimationFrame(() => {
         const container = containerRef.current;
         if (container) {
-          const pairHeight = 120; // approximate
-          const targetScroll = savedIndex * pairHeight;
-          container.scrollTo({ top: targetScroll, behavior: 'instant' });
+          container.scrollTo({ top: savedIndex * 100, behavior: 'instant' });
         }
       });
     }
@@ -38,14 +40,12 @@ export function ReadingView() {
   // Simple scroll tracking
   useEffect(() => {
     if (!currentChapter) return;
-
     const container = containerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
       const scrollTop = container.scrollTop;
-      const pairHeight = 120;
-      const currentIndex = Math.floor(scrollTop / pairHeight);
+      const currentIndex = Math.floor(scrollTop / 100);
       if (currentIndex >= 0 && currentIndex < currentChapter.pairs.length) {
         setReadingProgress(currentChapter.id, currentIndex);
       }
@@ -74,24 +74,35 @@ export function ReadingView() {
       : 0;
 
   return (
-    <>
+    <div className="flex h-full">
+      {/* Reading area */}
       <div
         ref={containerRef}
-        className="h-full overflow-y-auto max-w-3xl mx-auto pb-20 animate-fade-in"
+        className="flex-1 overflow-y-auto pb-20"
         style={{ fontSize: `${17 * fontZoom}px` }}
       >
-        {currentChapter.pairs.map((pair) => (
-          <SentencePair key={pair.id} pair={pair} />
-        ))}
+        <div className="max-w-2xl mx-auto px-8 py-6">
+          {currentChapter.pairs.map((pair) => (
+            <SentencePairCard
+              key={pair.id}
+              pair={pair}
+              isSelected={selectedPairId === pair.id}
+              onSelect={() => setSelectedPairId(pair.id === selectedPairId ? null : pair.id)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Japanese Style Reading Progress */}
+      {/* Practice panel */}
+      <PracticePanel pair={selectedPair} onClose={() => setSelectedPairId(null)} />
+
+      {/* Reading progress */}
       <div
         className="reading-progress"
         style={{ width: `${progressPct}%` }}
       />
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
-    </>
+    </div>
   );
 }
