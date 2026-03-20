@@ -54,30 +54,14 @@ export function PracticePanel({ pair, onClose }: Props) {
   };
 
   if (!pair) {
-    return (
-      <aside
-        className="w-96 h-full flex items-center justify-center"
-        style={{
-          borderLeft: '1px solid var(--border-light)',
-          backgroundColor: 'var(--bg-sidebar)',
-        }}
-      >
-        <div className="text-center px-8" style={{ color: 'var(--ink-muted)' }}>
-          <p className="text-sm" style={{ fontFamily: 'var(--font-ui)' }}>
-            点击左侧句子
-          </p>
-          <p className="text-xs mt-1 opacity-60" style={{ fontFamily: 'var(--font-ui)' }}>
-            开始练习
-          </p>
-        </div>
-      </aside>
-    );
+    return null;
   }
 
   return (
     <aside
-      className="w-96 h-full flex flex-col"
+      className="h-full flex flex-col animate-slide-in"
       style={{
+        width: '24rem',
         borderLeft: '1px solid var(--border-light)',
         backgroundColor: 'var(--bg-paper)',
       }}

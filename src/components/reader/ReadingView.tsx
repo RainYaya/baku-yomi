@@ -20,6 +20,15 @@ export function ReadingView() {
 
   const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
 
+  const handleClosePanel = () => setSelectedPairId(null);
+
+  // Close panel when clicking outside (on the reading area)
+  const handleReadingAreaClick = (e: React.MouseEvent) => {
+    if (selectedPairId && e.target === e.currentTarget) {
+      setSelectedPairId(null);
+    }
+  };
+
   // Restore scroll position when chapter changes
   useEffect(() => {
     if (!currentChapter) return;
@@ -78,8 +87,12 @@ export function ReadingView() {
       {/* Reading area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto pb-20"
-        style={{ fontSize: `${17 * fontZoom}px` }}
+        className="flex-1 overflow-y-auto pb-20 transition-all duration-300"
+        style={{
+          fontSize: `${17 * fontZoom}px`,
+          width: selectedPair ? 'calc(100% - 24rem)' : '100%',
+        }}
+        onClick={handleReadingAreaClick}
       >
         <div className="max-w-2xl mx-auto px-8 py-6">
           {currentChapter.pairs.map((pair) => (
@@ -94,7 +107,7 @@ export function ReadingView() {
       </div>
 
       {/* Practice panel */}
-      <PracticePanel pair={selectedPair} onClose={() => setSelectedPairId(null)} />
+      <PracticePanel pair={selectedPair} onClose={handleClosePanel} />
 
       {/* Reading progress */}
       <div
