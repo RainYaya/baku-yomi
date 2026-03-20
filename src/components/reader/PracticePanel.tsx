@@ -35,6 +35,7 @@ export function PracticePanel({ pair, onClose }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const isAnalyzing = analyzingPairId === pair?.id;
+  const hasOptimizedTranslation = hint && hint !== pair?.chinese;
 
   useEffect(() => {
     if (pair) {
@@ -61,7 +62,7 @@ export function PracticePanel({ pair, onClose }: Props) {
     }
   };
 
-  const handleGetHint = async () => {
+  const handleOptimizeTranslation = async () => {
     if (!pair || !aiProvider.apiKey) {
       setHintError('请先在设置中配置 AI API Key');
       return;
@@ -69,10 +70,12 @@ export function PracticePanel({ pair, onClose }: Props) {
     setLoadingHint(true);
     setHintError(null);
     try {
-      const text = await generateBacktranslateHints(aiProvider, pair.japanese, pair.chinese);
-      setHint(pair.id, text);
+      const optimized = await generateBacktranslateHints(aiProvider, pair.japanese, pair.chinese);
+      // Save optimized translation as the new Chinese translation
+      updatePairChinese(pair.id, optimized);
+      setHint(pair.id, optimized);
     } catch (e) {
-      setHintError(e instanceof Error ? e.message : '获取提示失败');
+      setHintError(e instanceof Error ? e.message : '优化译文失败');
     } finally {
       setLoadingHint(false);
     }
@@ -128,19 +131,36 @@ export function PracticePanel({ pair, onClose }: Props) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <span className="tag">译文</span>
-            {!editing && (
-              <button
-                onClick={() => {
-                  setEditText(pair.chinese);
-                  setEditing(true);
-                }}
-                className="text-xs opacity-40 hover:opacity-80 transition-opacity"
-                style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-muted)' }}
-              >
-                编辑
-              </button>
-            )}
+            <button
+              onClick={handleOptimizeTranslation}
+              disabled={loadingHint}
+              className="flex items-center gap-1.5 text-xs px-3 py-1 rounded transition-all"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                backgroundColor: 'rgba(124, 106, 173, 0.1)',
+                color: 'var(--accent-secondary)',
+                opacity: loadingHint ? 0.5 : 1,
+              }}
+            >
+              {loadingHint ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  优化中
+                </>
+              ) : (
+                <>
+                  <FiZap size={12} />
+                  优化译文
+                </>
+              )}
+            </button>
           </div>
+
+          {hintError && (
+            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
+              {hintError}
+            </p>
+          )}
 
           {editing ? (
             <div className="space-y-2">
@@ -182,72 +202,25 @@ export function PracticePanel({ pair, onClose }: Props) {
               </div>
             </div>
           ) : (
-            <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
-              {pair.chinese}
-            </p>
-          )}
-        </div>
-
-        {/* Backtranslate hints */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="tag">回译提示</span>
-            <button
-              onClick={handleGetHint}
-              disabled={loadingHint}
-              className="flex items-center gap-1.5 text-xs px-3 py-1 rounded transition-all"
-              style={{
-                fontFamily: 'var(--font-ui)',
-                backgroundColor: 'rgba(124, 106, 173, 0.1)',
-                color: 'var(--accent-secondary)',
-                opacity: loadingHint ? 0.5 : 1,
-              }}
-            >
-              {loadingHint ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  生成中
-                </>
-              ) : (
-                <>
-                  <FiZap size={12} />
-                  {hint ? '重新生成' : '获取提示'}
-                </>
+            <div>
+              <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
+                {pair.chinese}
+              </p>
+              {hasOptimizedTranslation && (
+                <p className="text-xs mt-2 opacity-50" style={{ fontFamily: 'var(--font-ui)' }}>
+                  已优化为适合回译的版本
+                </p>
               )}
-            </button>
-          </div>
-
-          {hintError && (
-            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
-              {hintError}
-            </p>
-          )}
-
-          {hint && (
-            <div
-              className="text-sm space-y-3 p-3 rounded"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                fontFamily: 'var(--font-body)',
-                color: 'var(--ink-secondary)',
-                lineHeight: '1.6',
-              }}
-            >
-              {hint.split('\n').filter(Boolean).map((line, i) => {
-                // Check if line starts with 【】
-                if (line.startsWith('【') && line.includes('】')) {
-                  const match = line.match(/^(【[^】]+】)(.*)$/);
-                  if (match) {
-                    return (
-                      <p key={i}>
-                        <strong style={{ color: 'var(--accent-primary)' }}>{match[1]}</strong>
-                        {match[2]}
-                      </p>
-                    );
-                  }
-                }
-                return <p key={i}>{line}</p>;
-              })}
+              <button
+                onClick={() => {
+                  setEditText(pair.chinese);
+                  setEditing(true);
+                }}
+                className="text-xs mt-2 opacity-40 hover:opacity-80 transition-opacity"
+                style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-muted)' }}
+              >
+                编辑
+              </button>
             </div>
           )}
         </div>
