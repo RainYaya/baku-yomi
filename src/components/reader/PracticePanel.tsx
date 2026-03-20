@@ -59,7 +59,7 @@ export function PracticePanel({ pair, onClose }: Props) {
 
   return (
     <aside
-      className="h-full flex flex-col animate-slide-in"
+      className="h-full flex flex-col animate-fade-in"
       style={{
         width: '24rem',
         borderLeft: '1px solid var(--border-light)',

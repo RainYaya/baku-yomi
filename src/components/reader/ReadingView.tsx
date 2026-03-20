@@ -87,11 +87,8 @@ export function ReadingView() {
       {/* Reading area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto pb-20 transition-all duration-300"
-        style={{
-          fontSize: `${17 * fontZoom}px`,
-          width: selectedPair ? 'calc(100% - 24rem)' : '100%',
-        }}
+        className="flex-1 overflow-y-auto pb-20"
+        style={{ fontSize: `${17 * fontZoom}px` }}
         onClick={handleReadingAreaClick}
       >
         <div className="max-w-2xl mx-auto px-8 py-6">
