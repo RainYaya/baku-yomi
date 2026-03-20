@@ -4,9 +4,9 @@ import { usePracticeStore } from '../../stores/practiceSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
-import { generateBacktranslateHints } from '../../lib/ai/client';
+import { generateBacktranslateHints, optimizeTranslationForBacktranslation } from '../../lib/ai/client';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { FiX, FiSend, FiMessageSquare, FiZap } from 'react-icons/fi';
+import { FiX, FiSend, FiMessageSquare, FiZap, FiHelpCircle } from 'react-icons/fi';
 
 interface Props {
   pair: SentencePairType | null;
@@ -17,7 +17,7 @@ export function PracticePanel({ pair, onClose }: Props) {
   const translation = usePracticeStore((s) => pair ? s.translations[pair.id] ?? '' : '');
   const analysis = usePracticeStore((s) => pair ? s.analyses[pair.id] : null);
   const note = usePracticeStore((s) => pair ? s.notes[pair.id] ?? '' : '');
-  const hint = usePracticeStore((s) => pair ? s.hints[pair.id] : '');
+  const hint = usePracticeStore((s) => pair ? s.hints[pair.id + '_hint'] : '');
   const setTranslation = usePracticeStore((s) => s.setTranslation);
   const setNote = usePracticeStore((s) => s.setNote);
   const setHint = usePracticeStore((s) => s.setHint);
@@ -29,19 +29,21 @@ export function PracticePanel({ pair, onClose }: Props) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [showNote, setShowNote] = useState(false);
+  const [loadingOptimize, setLoadingOptimize] = useState(false);
   const [loadingHint, setLoadingHint] = useState(false);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [hintError, setHintError] = useState<string | null>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const isAnalyzing = analyzingPairId === pair?.id;
-  const hasOptimizedTranslation = hint && hint !== pair?.chinese;
 
   useEffect(() => {
     if (pair) {
       setEditing(false);
       setShowNote(false);
       setError(null);
+      setOptimizeError(null);
       setHintError(null);
     }
   }, [pair?.id]);
@@ -64,18 +66,33 @@ export function PracticePanel({ pair, onClose }: Props) {
 
   const handleOptimizeTranslation = async () => {
     if (!pair || !aiProvider.apiKey) {
+      setOptimizeError('请先在设置中配置 AI API Key');
+      return;
+    }
+    setLoadingOptimize(true);
+    setOptimizeError(null);
+    try {
+      const optimized = await optimizeTranslationForBacktranslation(aiProvider, pair.japanese, pair.chinese);
+      updatePairChinese(pair.id, optimized);
+    } catch (e) {
+      setOptimizeError(e instanceof Error ? e.message : '优化译文失败');
+    } finally {
+      setLoadingOptimize(false);
+    }
+  };
+
+  const handleGetHint = async () => {
+    if (!pair || !aiProvider.apiKey) {
       setHintError('请先在设置中配置 AI API Key');
       return;
     }
     setLoadingHint(true);
     setHintError(null);
     try {
-      const optimized = await generateBacktranslateHints(aiProvider, pair.japanese, pair.chinese);
-      // Save optimized translation as the new Chinese translation
-      updatePairChinese(pair.id, optimized);
-      setHint(pair.id, optimized);
+      const text = await generateBacktranslateHints(aiProvider, pair.japanese, pair.chinese);
+      setHint(pair.id + '_hint', text);
     } catch (e) {
-      setHintError(e instanceof Error ? e.message : '优化译文失败');
+      setHintError(e instanceof Error ? e.message : '获取提示失败');
     } finally {
       setLoadingHint(false);
     }
@@ -132,35 +149,16 @@ export function PracticePanel({ pair, onClose }: Props) {
           <div className="flex items-center justify-between mb-2">
             <span className="tag">译文</span>
             <button
-              onClick={handleOptimizeTranslation}
-              disabled={loadingHint}
-              className="flex items-center gap-1.5 text-xs px-3 py-1 rounded transition-all"
-              style={{
-                fontFamily: 'var(--font-ui)',
-                backgroundColor: 'rgba(124, 106, 173, 0.1)',
-                color: 'var(--accent-secondary)',
-                opacity: loadingHint ? 0.5 : 1,
+              onClick={() => {
+                setEditText(pair.chinese);
+                setEditing(true);
               }}
+              className="text-xs opacity-40 hover:opacity-80 transition-opacity"
+              style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-muted)' }}
             >
-              {loadingHint ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  优化中
-                </>
-              ) : (
-                <>
-                  <FiZap size={12} />
-                  优化译文
-                </>
-              )}
+              编辑
             </button>
           </div>
-
-          {hintError && (
-            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
-              {hintError}
-            </p>
-          )}
 
           {editing ? (
             <div className="space-y-2">
@@ -202,25 +200,99 @@ export function PracticePanel({ pair, onClose }: Props) {
               </div>
             </div>
           ) : (
-            <div>
-              <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
-                {pair.chinese}
-              </p>
-              {hasOptimizedTranslation && (
-                <p className="text-xs mt-2 opacity-50" style={{ fontFamily: 'var(--font-ui)' }}>
-                  已优化为适合回译的版本
-                </p>
-              )}
+            <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
+              {pair.chinese}
+            </p>
+          )}
+        </div>
+
+        {/* 回译辅助 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="tag">回译辅助</span>
+            <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setEditText(pair.chinese);
-                  setEditing(true);
+                onClick={handleOptimizeTranslation}
+                disabled={loadingOptimize}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-all"
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  backgroundColor: 'rgba(124, 106, 173, 0.1)',
+                  color: 'var(--accent-secondary)',
+                  opacity: loadingOptimize ? 0.5 : 1,
                 }}
-                className="text-xs mt-2 opacity-40 hover:opacity-80 transition-opacity"
-                style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-muted)' }}
               >
-                编辑
+                {loadingOptimize ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  </>
+                ) : (
+                  <FiZap size={11} />
+                )}
+                优化译文
               </button>
+              <button
+                onClick={handleGetHint}
+                disabled={loadingHint}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-all"
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  backgroundColor: 'rgba(44, 74, 110, 0.08)',
+                  color: 'var(--accent-primary)',
+                  opacity: loadingHint ? 0.5 : 1,
+                }}
+              >
+                {loadingHint ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  </>
+                ) : (
+                  <FiHelpCircle size={11} />
+                )}
+                获取提示
+              </button>
+            </div>
+          </div>
+
+          {optimizeError && (
+            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
+              {optimizeError}
+            </p>
+          )}
+
+          {hintError && (
+            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
+              {hintError}
+            </p>
+          )}
+
+          {hint && (
+            <div
+              className="p-3 rounded text-sm space-y-2"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                fontFamily: 'var(--font-body)',
+                color: 'var(--ink-secondary)',
+                lineHeight: '1.6',
+              }}
+            >
+              <p className="text-xs opacity-50" style={{ fontFamily: 'var(--font-ui)' }}>
+                回译提示
+              </p>
+              {hint.split('\n').filter(Boolean).map((line, i) => {
+                if (line.startsWith('【') && line.includes('】')) {
+                  const match = line.match(/^(【[^】]+】)(.*)$/);
+                  if (match) {
+                    return (
+                      <p key={i}>
+                        <strong style={{ color: 'var(--accent-primary)' }}>{match[1]}</strong>
+                        {match[2]}
+                      </p>
+                    );
+                  }
+                }
+                return <p key={i}>{line}</p>;
+              })}
             </div>
           )}
         </div>
