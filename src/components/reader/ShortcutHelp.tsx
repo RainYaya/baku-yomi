@@ -1,38 +1,75 @@
+import { FiX } from 'react-icons/fi';
+
 interface Props {
   onClose: () => void;
 }
 
 const shortcuts = [
-  { keys: ['j', '↓'], desc: '下一个句对' },
-  { keys: ['k', '↑'], desc: '上一个句对' },
-  { keys: ['Enter'], desc: '展开/收起当前句对' },
-  { keys: ['Escape'], desc: '收起句对 / 退出输入框' },
-  { keys: ['Ctrl', 'Enter'], desc: '提交翻译分析' },
-  { keys: ['n'], desc: '切换笔记弹窗' },
-  { keys: ['?'], desc: '显示/隐藏快捷键帮助' },
+  { keys: ['j', '↓'], desc: '下一句' },
+  { keys: ['k', '↑'], desc: '上一句' },
+  { keys: ['Enter'], desc: '展开/收起' },
+  { keys: ['n'], desc: '笔记' },
+  { keys: ['Ctrl', 'Enter'], desc: '提交分析' },
+  { keys: ['Esc'], desc: '关闭' },
+  { keys: ['?'], desc: '帮助' },
 ];
 
 export function ShortcutHelp({ onClose }: Props) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
+      style={{ backgroundColor: 'rgba(45, 45, 45, 0.3)', backdropFilter: 'blur(2px)' }}
       onClick={onClose}
     >
       <div
-        className="w-80 p-6 space-y-4 rounded-sm"
-        style={{ backgroundColor: 'var(--bg-color)', border: 'var(--border-style)', color: 'var(--brand-green)' }}
+        className="w-full max-w-sm mx-4 p-6 animate-slide-up"
+        style={{
+          backgroundColor: 'var(--bg-paper)',
+          borderRadius: '6px',
+          boxShadow: '0 8px 32px rgba(44, 74, 110, 0.15)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-bold uppercase tracking-wide">键盘快捷键</h3>
-        <div className="space-y-2">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h3
+            className="text-sm font-medium"
+            style={{
+              fontFamily: 'var(--font-ui)',
+              color: 'var(--ink-primary)',
+              letterSpacing: '0.08em',
+            }}
+          >
+            快捷键
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 opacity-40 hover:opacity-100 transition-opacity"
+          >
+            <FiX size={16} />
+          </button>
+        </div>
+
+        {/* Shortcuts list */}
+        <div className="space-y-3">
           {shortcuts.map(({ keys, desc }) => (
-            <div key={desc} className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
+            <div
+              key={desc}
+              className="flex items-center justify-between"
+              style={{ fontFamily: 'var(--font-ui)' }}
+            >
+              <div className="flex items-center gap-1.5">
                 {keys.map((key, i) => (
-                  <span key={i}>
+                  <span key={i} className="flex items-center">
                     <kbd
-                      className="px-1.5 py-0.5 text-xs font-mono rounded-sm"
-                      style={{ border: 'var(--border-style)', backgroundColor: 'rgba(26, 81, 46, 0.06)' }}
+                      className="px-2 py-1 text-xs"
+                      style={{
+                        fontFamily: 'monospace',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '3px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--ink-secondary)',
+                      }}
                     >
                       {key}
                     </kbd>
@@ -42,12 +79,23 @@ export function ShortcutHelp({ onClose }: Props) {
                   </span>
                 ))}
               </div>
-              <span className="text-sm opacity-70">{desc}</span>
+              <span
+                className="text-sm"
+                style={{ color: 'var(--ink-muted)' }}
+              >
+                {desc}
+              </span>
             </div>
           ))}
         </div>
-        <p className="text-xs text-center opacity-40">
-          按 <kbd className="px-1 py-0.5 text-xs font-mono rounded-sm" style={{ border: 'var(--border-style)' }}>?</kbd> 或 <kbd className="px-1 py-0.5 text-xs font-mono rounded-sm" style={{ border: 'var(--border-style)' }}>Esc</kbd> 关闭
+
+        {/* Footer hint */}
+        <p
+          className="text-xs text-center mt-6 opacity-40"
+          style={{ fontFamily: 'var(--font-ui)' }}
+        >
+          按 <kbd className="px-1.5 py-0.5" style={{ border: '1px solid var(--border-color)', borderRadius: '2px' }}>?</kbd> 或{' '}
+          <kbd className="px-1.5 py-0.5" style={{ border: '1px solid var(--border-color)', borderRadius: '2px' }}>Esc</kbd> 关闭
         </p>
       </div>
     </div>

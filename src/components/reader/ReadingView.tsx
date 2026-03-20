@@ -125,8 +125,8 @@ export function ReadingView() {
 
   if (!currentChapter) {
     return (
-      <div className="flex items-center justify-center h-full opacity-40">
-        请在左侧选择章节
+      <div className="flex items-center justify-center h-full text-reading opacity-50" style={{ color: 'var(--ink-muted)' }}>
+        左侧选择章节
       </div>
     );
   }
@@ -141,8 +141,8 @@ export function ReadingView() {
     <>
       <div
         ref={containerRef}
-        className="max-w-4xl mx-auto pb-16"
-        style={{ fontSize: `${16 * fontZoom}px` }}
+        className="max-w-3xl mx-auto pb-20 animate-fade-in"
+        style={{ fontSize: `${17 * fontZoom}px` }}
       >
         <div>
           {currentChapter.pairs.map((pair, idx) => (
@@ -167,16 +167,11 @@ export function ReadingView() {
         </div>
       </div>
 
-      {/* Fixed bottom progress bar */}
+      {/* Japanese Style Reading Progress */}
       <div
-        className="fixed bottom-0 left-0 w-full h-1 z-20"
-        style={{ backgroundColor: 'rgba(26, 81, 46, 0.1)' }}
-      >
-        <div
-          className="h-full transition-all duration-300"
-          style={{ backgroundColor: 'var(--brand-green)', width: `${progressPct}%` }}
-        />
-      </div>
+        className="reading-progress"
+        style={{ width: `${progressPct}%` }}
+      />
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
     </>

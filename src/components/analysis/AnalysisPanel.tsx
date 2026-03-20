@@ -4,27 +4,57 @@ interface Props {
   result: AnalysisResult;
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  let color = 'bg-red-100 text-red-700';
-  if (score >= 80) color = 'bg-green-100 text-green-700';
-  else if (score >= 60) color = 'bg-yellow-100 text-yellow-700';
-
-  return (
-    <span className={`text-lg font-bold px-3 py-1 rounded-lg ${color}`}>
-      {score}/100
-    </span>
-  );
-}
-
 export function AnalysisPanel({ result }: Props) {
   return (
-    <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-600">AI 分析结果</h4>
-        <ScoreBadge score={result.score} />
-      </div>
+    <div
+      className="mt-5 pt-5 animate-fade-in"
+      style={{ borderTop: '1px dashed var(--border-color)' }}
+    >
+      {/* Score indicator */}
+      {result.score > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          <span
+            className="text-xs"
+            style={{
+              fontFamily: 'var(--font-ui)',
+              color: 'var(--ink-muted)',
+              letterSpacing: '0.05em',
+            }}
+          >
+            评分
+          </span>
+          <div className="flex items-center gap-2">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{
+                  backgroundColor:
+                    i < Math.round(result.score / 20)
+                      ? 'var(--accent-primary)'
+                      : 'var(--border-color)',
+                }}
+              />
+            ))}
+            <span
+              className="text-sm ml-1"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-secondary)',
+                fontWeight: 500,
+              }}
+            >
+              {result.score}/100
+            </span>
+          </div>
+        </div>
+      )}
 
-      <div className="prose prose-sm max-w-none text-gray-700">
+      {/* Raw markdown content */}
+      <div
+        className="text-reading"
+        style={{ color: 'var(--ink-secondary)', fontSize: '0.9em' }}
+      >
         <MarkdownContent text={result.rawMarkdown} />
       </div>
     </div>
@@ -41,13 +71,28 @@ function MarkdownContent({ text }: { text: string }) {
 
     if (line.startsWith('【') && line.includes('】')) {
       elements.push(
-        <h3 key={i} className="text-base font-bold text-indigo-700 mt-4 mb-2">
+        <h3
+          key={i}
+          className="text-sm font-medium mt-5 mb-2"
+          style={{
+            fontFamily: 'var(--font-ui)',
+            color: 'var(--accent-primary)',
+            letterSpacing: '0.02em',
+          }}
+        >
           {line}
         </h3>
       );
     } else if (line.startsWith('####')) {
       elements.push(
-        <h4 key={i} className="text-sm font-semibold text-gray-700 mt-3 mb-1">
+        <h4
+          key={i}
+          className="text-sm font-medium mt-4 mb-1.5"
+          style={{
+            fontFamily: 'var(--font-ui)',
+            color: 'var(--ink-secondary)',
+          }}
+        >
           {line.replace(/^####\s*/, '')}
         </h4>
       );
@@ -59,19 +104,28 @@ function MarkdownContent({ text }: { text: string }) {
       elements.push(
         <p
           key={i}
-          className="text-sm ml-4 my-0.5"
+          className="text-sm ml-4 my-1"
           dangerouslySetInnerHTML={{ __html: formatted }}
+          style={{ fontFamily: 'var(--font-body)' }}
         />
       );
     } else if (line.startsWith('- ')) {
       elements.push(
-        <p key={i} className="text-sm ml-4 my-0.5">
+        <p
+          key={i}
+          className="text-sm ml-4 my-1"
+          style={{ fontFamily: 'var(--font-body)' }}
+        >
           {line}
         </p>
       );
     } else if (line.trim()) {
       elements.push(
-        <p key={i} className="text-sm my-1">
+        <p
+          key={i}
+          className="text-sm my-1.5"
+          style={{ fontFamily: 'var(--font-body)' }}
+        >
           {line}
         </p>
       );

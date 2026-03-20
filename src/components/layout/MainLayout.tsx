@@ -3,7 +3,10 @@ import { TopBar } from './TopBar';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-color)', color: 'var(--brand-green)' }}>
+    <div
+      className="h-screen flex flex-col"
+      style={{ backgroundColor: 'var(--bg-paper)', color: 'var(--ink-primary)' }}
+    >
       <TopBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

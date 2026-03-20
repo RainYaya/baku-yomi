@@ -6,7 +6,7 @@ import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
 import { HintPanel } from './HintPanel';
-import { HiOutlineEye, HiOutlinePaperAirplane, HiOutlinePencilSquare, HiOutlineCheck, HiOutlineXMark, HiOutlineChatBubbleBottomCenterText } from 'react-icons/hi2';
+import { FiEye, FiSend, FiEdit2, FiCheck, FiX, FiMessageSquare } from 'react-icons/fi';
 
 interface Props {
   pair: SentencePairType;
@@ -20,9 +20,11 @@ interface Props {
 function JapaneseText({
   pair,
   className,
+  style,
 }: {
   pair: SentencePairType;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const showFurigana = useSettingsStore((s) => s.showFurigana);
 
@@ -30,11 +32,12 @@ function JapaneseText({
     return (
       <p
         className={className}
+        style={style}
         dangerouslySetInnerHTML={{ __html: pair.japaneseHtml }}
       />
     );
   }
-  return <p className={className}>{pair.japanese}</p>;
+  return <p className={className} style={style}>{pair.japanese}</p>;
 }
 
 /** Floating note popup anchored to the right side */
@@ -76,14 +79,23 @@ function NotePopup({
   return (
     <div
       ref={popupRef}
-      className="absolute right-0 top-0 translate-x-[calc(100%+8px)] z-20 w-72 shadow-lg p-3 space-y-2 rounded-sm"
-      style={{ backgroundColor: 'var(--bg-color)', border: 'var(--border-style)' }}
+      className="absolute right-0 top-0 translate-x-full z-20 w-64 animate-slide-up"
+      style={{
+        backgroundColor: 'var(--bg-paper)',
+        border: '1px solid var(--border-color)',
+        boxShadow: 'var(--shadow-soft)',
+        padding: '1rem',
+        marginLeft: '12px',
+      }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide">笔记</span>
-        <button onClick={onClose} className="p-0.5 opacity-50 hover:opacity-100">
-          <HiOutlineXMark size={14} />
+      <div className="flex items-center justify-between mb-3">
+        <span className="tag">笔记</span>
+        <button
+          onClick={onClose}
+          className="p-1 opacity-40 hover:opacity-100 transition-opacity"
+        >
+          <FiX size={14} />
         </button>
       </div>
       <textarea
@@ -93,10 +105,14 @@ function NotePopup({
           setNote(pairId, e.target.value);
           autoResize();
         }}
-        placeholder="在此记录学习笔记..."
+        placeholder="在此记录..."
         rows={3}
-        className="w-full px-3 py-2 text-sm focus:outline-none resize-none overflow-hidden rounded-sm"
-        style={{ border: 'var(--border-style)', backgroundColor: 'rgba(26, 81, 46, 0.03)' }}
+        className="w-full px-3 py-2 text-sm resize-none overflow-hidden"
+        style={{
+          border: '1px solid var(--border-light)',
+          borderRadius: '3px',
+          backgroundColor: 'var(--bg-secondary)',
+        }}
         autoFocus
       />
     </div>
@@ -119,7 +135,7 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [chineseRevealed, setChineseRevealed] = useState(false);
-  const peekTimer = useRef<ReturnType<typeof setTimeout>>();
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const isAnalyzing = analyzingPairId === pair.id;
 
   useEffect(() => {
@@ -152,63 +168,68 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
   const hasWork = translation.trim() || analysis || note.trim();
   const isParallel = layoutMode === 'parallel';
 
-  // --- Chinese content rendering ---
-  const renderChinese = () => {
-    if (keywordMode && !active) {
-      return <p className="text-sm italic opacity-50">💡 提示模式 — 点击展开获取 AI 提示</p>;
-    }
-    return <p className="leading-relaxed" style={{ fontSize: '0.9em' }}>{pair.chinese}</p>;
-  };
-
   // Compact reading mode (not active)
   if (!active) {
     return (
       <article
-        className={`group cursor-pointer relative transition-colors`}
+        className="group cursor-pointer relative transition-all duration-200 hover:bg-opacity-50"
         style={{
-          borderBottom: 'var(--border-style)',
-          padding: isParallel ? '1rem' : '1.5rem 1rem',
-          ...(isParallel ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' } : {}),
+          borderBottom: '1px solid var(--border-light)',
+          padding: isParallel ? '1.25rem 2rem' : '1.5rem 2rem',
+          backgroundColor: hasWork ? 'var(--bg-secondary)' : 'transparent',
         }}
         onClick={onActivate}
       >
         {/* Left indicator for worked items */}
         {hasWork && !isParallel && (
-          <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: 'var(--brand-green)', opacity: 0.4 }} />
+          <div
+            className="absolute left-0 top-0 bottom-0 w-0.5"
+            style={{ backgroundColor: 'var(--accent-primary)' }}
+          />
         )}
 
-        {/* Japanese */}
-        <div>
-          {showJapanese && (
-            <JapaneseText
-              pair={pair}
-              className={`leading-relaxed ${isParallel ? '' : 'mb-3'}`}
+        <div className="max-w-2xl">
+          {/* Japanese */}
+          <div>
+            {showJapanese && (
+              <JapaneseText
+                pair={pair}
+                className="text-reading mb-4"
+                style={{ lineHeight: '2' }}
+              />
+            )}
+            {blindMode && !peeking && (
+              <button
+                onClick={handlePeek}
+                className="text-xs opacity-40 hover:opacity-70 inline-flex items-center gap-1 transition-opacity"
+                style={{ color: 'var(--ink-muted)' }}
+              >
+                <FiEye size={12} />
+                原文
+              </button>
+            )}
+            {/* Chinese below in alternating mode */}
+            {!isParallel && (
+              <div
+                className="text-reading opacity-70"
+                style={{
+                  paddingLeft: '1.5rem',
+                  borderLeft: '2px solid var(--accent-subtle)',
+                  fontSize: '0.9em',
+                }}
+              >
+                <p>{pair.chinese}</p>
+              </div>
+            )}
+          </div>
 
-            />
-          )}
-          {blindMode && !peeking && (
-            <span
-              onClick={handlePeek}
-              className="text-xs opacity-50 hover:opacity-100 inline-flex items-center gap-1"
-            >
-              <HiOutlineEye size={12} />
-              偷看
-            </span>
-          )}
-          {/* In alternating mode, Chinese goes below Japanese */}
-          {!isParallel && (
-            <div style={{ paddingLeft: '1.5rem', borderLeft: '2px solid var(--brand-green-light)' }}>
-              {renderChinese()}
+          {/* Chinese in parallel mode */}
+          {isParallel && (
+            <div style={{ fontSize: '0.9em', opacity: 0.7 }}>
+              <p>{pair.chinese}</p>
             </div>
           )}
         </div>
-
-        {/* In parallel mode, Chinese goes in the right column */}
-        {isParallel && (
-          <div>
-            {renderChinese()}
-          </div>
-        )}
 
         {/* Note indicator */}
         {note.trim() && (
@@ -217,10 +238,10 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
               e.stopPropagation();
               onToggleNote();
             }}
-            className="absolute top-3 right-3 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+            className="absolute top-4 right-4 opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity"
             title="查看笔记"
           >
-            <HiOutlineChatBubbleBottomCenterText size={14} />
+            <FiMessageSquare size={14} />
           </button>
         )}
         {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={onToggleNote} />}
@@ -231,169 +252,193 @@ export function SentencePair({ pair, active, onActivate, noteOpen, onToggleNote 
   // Expanded practice mode (active)
   return (
     <article
-      className="relative space-y-4"
+      className="relative space-y-5 animate-slide-up"
       style={{
-        borderBottom: 'var(--border-style)',
-        padding: '1.5rem 1rem',
-        backgroundColor: 'rgba(26, 81, 46, 0.04)',
+        borderBottom: '1px solid var(--border-color)',
+        padding: '2rem',
+        backgroundColor: 'var(--bg-paper)',
       }}
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div
+        <button
           onClick={onActivate}
-          className="cursor-pointer text-xs uppercase tracking-wide opacity-50 hover:opacity-100 select-none"
+          className="text-xs opacity-40 hover:opacity-70 transition-opacity cursor-pointer"
+          style={{ fontFamily: 'var(--font-ui)', letterSpacing: '0.05em' }}
         >
-          点击收起
-        </div>
+          收起
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleNote();
           }}
-          className={`flex items-center gap-1 text-xs uppercase tracking-wide transition-opacity ${
-            note.trim() ? 'opacity-80' : 'opacity-40 hover:opacity-80'
+          className={`flex items-center gap-1.5 text-xs transition-opacity ${
+            note.trim() ? 'opacity-60' : 'opacity-30 hover:opacity-60'
           }`}
+          style={{ fontFamily: 'var(--font-ui)' }}
         >
-          <HiOutlineChatBubbleBottomCenterText size={14} />
-          {note.trim() ? '笔记' : '添加笔记'}
+          <FiMessageSquare size={14} />
+          {note.trim() ? '笔记' : '笔记'}
         </button>
       </div>
 
       {noteOpen && <NotePopup note={note} pairId={pair.id} setNote={setNote} onClose={onToggleNote} />}
 
       {/* Japanese original */}
-      <div className="flex items-start gap-3">
-        <span className="text-xs font-bold uppercase tracking-wide opacity-50 mt-1 flex-shrink-0">日</span>
-        {showJapanese ? (
-          <JapaneseText pair={pair} className="leading-relaxed flex-1" />
-        ) : (
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-sm italic opacity-40">盲模式已隐藏</span>
-            <button
-              onClick={handlePeek}
-              className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1"
-            >
-              <HiOutlineEye size={14} />
-              偷看3秒
-            </button>
-          </div>
-        )}
+      <div className="flex items-start gap-4">
+        <span className="tag mt-1">原文</span>
+        <div className="flex-1">
+          {showJapanese ? (
+            <JapaneseText pair={pair} className="text-reading" />
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-sm opacity-40 italic" style={{ fontFamily: 'var(--font-ui)' }}>
+                盲模式已隐藏
+              </span>
+              <button
+                onClick={handlePeek}
+                className="text-xs opacity-50 hover:opacity-80 flex items-center gap-1"
+                style={{ fontFamily: 'var(--font-ui)' }}
+              >
+                <FiEye size={14} />
+                显示原文
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Chinese translation */}
-      <div className="flex items-start gap-3">
-        <span className="text-xs font-bold uppercase tracking-wide opacity-50 mt-1 flex-shrink-0">中</span>
-        {editing ? (
-          <div className="flex-1 flex gap-2">
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={2}
-              className="flex-1 px-3 py-1.5 text-sm focus:outline-none resize-none rounded-sm"
-              style={{ border: 'var(--border-style)', backgroundColor: 'rgba(26, 81, 46, 0.03)' }}
-              onClick={(e) => e.stopPropagation()}
-              autoFocus
-            />
-            <div className="flex flex-col gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updatePairChinese(pair.id, editText);
-                  setEditing(false);
+      <div className="flex items-start gap-4">
+        <span className="tag mt-1">译文</span>
+        <div className="flex-1">
+          {editing ? (
+            <div className="flex gap-3">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                rows={2}
+                className="flex-1 px-3 py-2 text-sm resize-none"
+                style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '3px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  fontFamily: 'var(--font-body)',
                 }}
-                className="p-1 opacity-60 hover:opacity-100 transition-opacity"
-                title="保存"
-              >
-                <HiOutlineCheck size={16} />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditing(false);
-                }}
-                className="p-1 opacity-40 hover:opacity-100 transition-opacity"
-                title="取消"
-              >
-                <HiOutlineXMark size={16} />
-              </button>
-            </div>
-          </div>
-        ) : keywordMode ? (
-          <div className="flex-1 space-y-1.5">
-            <HintPanel
-              pairId={pair.id}
-              japanese={pair.japanese}
-              chinese={pair.chinese}
-              showReveal
-              onReveal={() => setChineseRevealed(!chineseRevealed)}
-            />
-            {chineseRevealed && (
-              <div className="flex items-start gap-1 group/edit">
-                <p className="opacity-60 text-sm leading-relaxed flex-1">{pair.chinese}</p>
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              />
+              <div className="flex flex-col gap-1.5">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setEditText(pair.chinese);
-                    setEditing(true);
+                    updatePairChinese(pair.id, editText);
+                    setEditing(false);
                   }}
-                  className="opacity-0 group-hover/edit:opacity-60 hover:!opacity-100 p-1 transition-all flex-shrink-0"
-                  title="编辑中文翻译"
+                  className="p-1.5 opacity-50 hover:opacity-100 transition-opacity"
+                  title="保存"
                 >
-                  <HiOutlinePencilSquare size={14} />
+                  <FiCheck size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing(false);
+                  }}
+                  className="p-1.5 opacity-30 hover:opacity-70 transition-opacity"
+                  title="取消"
+                >
+                  <FiX size={16} />
                 </button>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex-1 flex items-start gap-1 group/edit">
-            <p className="leading-relaxed flex-1" style={{ fontSize: '0.9em' }}>{pair.chinese}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditText(pair.chinese);
-                setEditing(true);
-              }}
-              className="opacity-0 group-hover/edit:opacity-60 hover:!opacity-100 p-1 transition-all flex-shrink-0"
-              title="编辑中文翻译"
-            >
-              <HiOutlinePencilSquare size={14} />
-            </button>
-          </div>
-        )}
+            </div>
+          ) : keywordMode ? (
+            <div className="space-y-3">
+              <HintPanel
+                pairId={pair.id}
+                japanese={pair.japanese}
+                chinese={pair.chinese}
+                showReveal
+                onReveal={() => setChineseRevealed(!chineseRevealed)}
+              />
+              {chineseRevealed && (
+                <div className="flex items-start gap-2 group/edit">
+                  <p className="opacity-70 text-reading flex-1" style={{ fontSize: '0.95em' }}>
+                    {pair.chinese}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditText(pair.chinese);
+                      setEditing(true);
+                    }}
+                    className="opacity-0 group-hover/edit:opacity-50 hover:!opacity-100 p-1 transition-all flex-shrink-0"
+                    title="编辑译文"
+                  >
+                    <FiEdit2 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 group/edit">
+              <p className="text-reading flex-1" style={{ fontSize: '0.95em' }}>
+                {pair.chinese}
+              </p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditText(pair.chinese);
+                  setEditing(true);
+                }}
+                className="opacity-0 group-hover/edit:opacity-50 hover:!opacity-100 p-1 transition-all flex-shrink-0"
+                title="编辑译文"
+              >
+                <FiEdit2 size={14} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* User translation input */}
-      <div className="pt-2">
+      <div className="pt-3">
         <textarea
           value={translation}
           onChange={(e) => setTranslation(pair.id, e.target.value)}
           placeholder="在此输入你的日语回译..."
           rows={2}
-          className="w-full px-3 py-2 text-sm focus:outline-none resize-none rounded-sm"
-          style={{ border: 'var(--border-style)', backgroundColor: 'rgba(26, 81, 46, 0.03)' }}
+          className="w-full px-4 py-3 text-reading"
+          style={{
+            border: '1px solid var(--border-color)',
+            borderRadius: '3px',
+            backgroundColor: 'var(--bg-secondary)',
+          }}
           onClick={(e) => e.stopPropagation()}
         />
-        <div className="flex justify-between items-center mt-2">
+        <div className="flex justify-between items-center mt-3">
           <div>
             {error && (
-              <span className="text-xs" style={{ color: '#b91c1c' }}>{error}</span>
+              <span className="text-xs" style={{ color: 'var(--error-color)' }}>
+                {error}
+              </span>
             )}
           </div>
           <button
             onClick={handleSubmit}
             disabled={isAnalyzing || !translation.trim()}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-sm transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ backgroundColor: 'var(--brand-green)', color: 'var(--bg-color)' }}
+            className="btn btn-primary flex items-center gap-2"
+            style={{ opacity: isAnalyzing || !translation.trim() ? 0.4 : 1 }}
           >
             {isAnalyzing ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                分析中...
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                分析中
               </>
             ) : (
               <>
-                <HiOutlinePaperAirplane size={14} />
+                <FiSend size={14} />
                 提交分析
               </>
             )}

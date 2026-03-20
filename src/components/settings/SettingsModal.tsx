@@ -2,7 +2,7 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import type { AIProviderType } from '../../types';
 import { DEFAULT_MODELS } from '../../types';
-import { HiOutlineXMark } from 'react-icons/hi2';
+import { FiX } from 'react-icons/fi';
 
 const PROVIDERS: { value: AIProviderType; label: string }[] = [
   { value: 'openai', label: 'OpenAI' },
@@ -18,22 +18,44 @@ export function SettingsModal() {
   if (!settingsOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-800">设置</h2>
+    <div className="modal-overlay" onClick={closeSettings}>
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{ padding: '2rem' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h2
+            className="text-lg font-medium"
+            style={{
+              fontFamily: 'var(--font-ui)',
+              color: 'var(--ink-primary)',
+            }}
+          >
+            设置
+          </h2>
           <button
             onClick={closeSettings}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 rounded transition-colors opacity-50 hover:opacity-100"
+            style={{ color: 'var(--ink-muted)' }}
           >
-            <HiOutlineXMark size={20} />
+            <FiX size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Form */}
+        <div className="space-y-6">
           {/* Provider select */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              className="block text-sm mb-2"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-secondary)',
+                fontWeight: 500,
+              }}
+            >
               AI 供应商
             </label>
             <select
@@ -46,7 +68,14 @@ export function SettingsModal() {
                   baseUrl: undefined,
                 });
               }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full px-4 py-2.5 text-sm"
+              style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-paper)',
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-primary)',
+              }}
             >
               {PROVIDERS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -58,7 +87,14 @@ export function SettingsModal() {
 
           {/* API Key */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              className="block text-sm mb-2"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-secondary)',
+                fontWeight: 500,
+              }}
+            >
               API Key
             </label>
             <input
@@ -66,13 +102,26 @@ export function SettingsModal() {
               value={aiProvider.apiKey}
               onChange={(e) => setAIProvider({ apiKey: e.target.value })}
               placeholder="sk-..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full px-4 py-2.5 text-sm"
+              style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-paper)',
+                fontFamily: 'var(--font-ui)',
+              }}
             />
           </div>
 
           {/* Model name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              className="block text-sm mb-2"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-secondary)',
+                fontWeight: 500,
+              }}
+            >
               模型名称
             </label>
             <input
@@ -80,14 +129,27 @@ export function SettingsModal() {
               value={aiProvider.model}
               onChange={(e) => setAIProvider({ model: e.target.value })}
               placeholder={DEFAULT_MODELS[aiProvider.type]}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full px-4 py-2.5 text-sm"
+              style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-paper)',
+                fontFamily: 'var(--font-ui)',
+              }}
             />
           </div>
 
           {/* Base URL for OpenAI-compatible */}
           {aiProvider.type === 'openai-compatible' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                className="block text-sm mb-2"
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  color: 'var(--ink-secondary)',
+                  fontWeight: 500,
+                }}
+              >
                 Base URL
               </label>
               <input
@@ -95,16 +157,23 @@ export function SettingsModal() {
                 value={aiProvider.baseUrl ?? ''}
                 onChange={(e) => setAIProvider({ baseUrl: e.target.value })}
                 placeholder="https://api.example.com/v1"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-full px-4 py-2.5 text-sm"
+                style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '4px',
+                  backgroundColor: 'var(--bg-paper)',
+                  fontFamily: 'var(--font-ui)',
+                }}
               />
             </div>
           )}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        {/* Footer */}
+        <div className="mt-8 flex justify-end">
           <button
             onClick={closeSettings}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            className="btn btn-primary px-6 py-2.5"
           >
             完成
           </button>

@@ -1,23 +1,286 @@
 @import "tailwindcss";
 
+/* === Japanese Style Theme === */
+
 :root {
-  --bg-color: #efefef;
-  --brand-green: #1a512e;
-  --brand-green-light: rgba(26, 81, 46, 0.2);
-  --border-style: 1px solid var(--brand-green);
-  --text-base: 16px;
+  /* 和紙(Washi) Paper Background */
+  --bg-paper: #faf8f5;
+  --bg-secondary: #f5f2ed;
+  --bg-sidebar: #f8f6f3;
+  
+  /* 墨色(Ink) - Primary text */
+  --ink-primary: #2d2d2d;
+  --ink-secondary: #5c5c5c;
+  --ink-muted: #8a8a8a;
+  
+  /* 藍色(Ai) - Brand/Accent */
+  --accent-primary: #2c4a6e;
+  --accent-light: #4a6b8a;
+  --accent-subtle: rgba(44, 74, 110, 0.08);
+  
+  /* 藤色(Fuji) - Secondary accent */
+  --accent-secondary: #7c6aad;
+  
+  /* 朱色(Shu) - Error/Highlight */
+  --error-color: #b84a4a;
+  
+  /* Border */
+  --border-color: rgba(44, 74, 110, 0.15);
+  --border-light: rgba(44, 74, 110, 0.08);
+  
+  /* Shadow */
+  --shadow-soft: 0 2px 8px rgba(44, 74, 110, 0.06);
+  --shadow-card: 0 1px 3px rgba(44, 74, 110, 0.08);
+  
+  /* Typography */
+  --font-body: "Noto Serif JP", "Source Han Serif JP", "Hiragino Mincho Pro", serif;
+  --font-ui: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --font-size-base: 17px;
+  --line-height-body: 1.9;
 }
 
-/* Scrollbar */
+/* === Base Styles === */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: var(--font-size-base);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-paper);
+  color: var(--ink-primary);
+  line-height: var(--line-height-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 和紙テクスチャ背景(Paper Texture) */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* === Typography === */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* === Scrollbar === */
+
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: var(--bg-color);
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(26, 81, 46, 0.3);
+  background: var(--border-color);
+  border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--brand-green);
+  background: var(--accent-light);
+}
+
+/* === Focus States === */
+
+*:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* === Selection === */
+
+::selection {
+  background-color: rgba(44, 74, 110, 0.15);
+  color: var(--ink-primary);
+}
+
+/* === Utility Classes === */
+
+.text-reading {
+  font-family: var(--font-body);
+  line-height: var(--line-height-body);
+  letter-spacing: 0.02em;
+}
+
+.text-ui {
+  font-family: var(--font-ui);
+}
+
+/* === Animations === */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* === Reading Progress Bar === */
+
+.reading-progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  transition: width 0.3s ease-out;
+  z-index: 50;
+}
+
+/* === Card Styles === */
+
+.card {
+  background: var(--bg-paper);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-soft);
+}
+
+/* === Button Base === */
+
+.btn {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.5rem 1rem;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: var(--bg-paper);
+}
+
+.btn-primary:hover {
+  background: var(--accent-light);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--accent-subtle);
+  color: var(--ink-primary);
+}
+
+/* === Input Styles === */
+
+.input {
+  font-family: var(--font-body);
+  background: var(--bg-paper);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* === Divider === */
+
+.divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-color) 20%,
+    var(--border-color) 80%,
+    transparent
+  );
+  margin: 2rem 0;
+}
+
+/* === Tag/Badge === */
+
+.tag {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+}
+
+/* === Modal Overlay === */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 45, 45, 0.4);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: var(--bg-paper);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(44, 74, 110, 0.15);
+  max-width: 480px;
+  width: 90%;
+  animation: slideUp 0.25s ease-out;
 }
