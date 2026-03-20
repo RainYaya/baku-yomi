@@ -1,12 +1,12 @@
 import type { AIProviderConfig, AnalysisResult } from '../../types';
-import { buildAnalysisPrompt, buildHintPrompt } from './prompts';
+import { buildAnalysisPrompt, buildBacktranslateHintPrompt } from './prompts';
 
-export async function generateHints(
+export async function generateBacktranslateHints(
   config: AIProviderConfig,
   original: string,
   chinese: string
 ): Promise<string> {
-  const prompt = buildHintPrompt(original, chinese);
+  const prompt = buildBacktranslateHintPrompt(original, chinese);
 
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -59,7 +59,7 @@ export async function analyzeTranslation(
   const rawMarkdown: string = data.text;
 
   // Extract score
-  const scoreMatch = rawMarkdown.match(/【総合評価】\s*(\d+)/);
+  const scoreMatch = rawMarkdown.match(/【総合评分】\s*(\d+)/);
   const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
 
   return {

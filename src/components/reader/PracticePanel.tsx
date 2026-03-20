@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import type { SentencePair as SentencePairType } from '../../types';
 import { usePracticeStore } from '../../stores/practiceSlice';
+import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { generateBacktranslateHints } from '../../lib/ai/client';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { FiX, FiSend, FiMessageSquare } from 'react-icons/fi';
+import { FiX, FiSend, FiMessageSquare, FiZap } from 'react-icons/fi';
 
 interface Props {
   pair: SentencePairType | null;
@@ -15,15 +17,20 @@ export function PracticePanel({ pair, onClose }: Props) {
   const translation = usePracticeStore((s) => pair ? s.translations[pair.id] ?? '' : '');
   const analysis = usePracticeStore((s) => pair ? s.analyses[pair.id] : null);
   const note = usePracticeStore((s) => pair ? s.notes[pair.id] ?? '' : '');
+  const hint = usePracticeStore((s) => pair ? s.hints[pair.id] : '');
   const setTranslation = usePracticeStore((s) => s.setTranslation);
   const setNote = usePracticeStore((s) => s.setNote);
+  const setHint = usePracticeStore((s) => s.setHint);
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
   const { analyze, analyzingPairId } = useAnalysis();
+  const aiProvider = useSettingsStore((s) => s.aiProvider);
 
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [showNote, setShowNote] = useState(false);
+  const [loadingHint, setLoadingHint] = useState(false);
+  const [hintError, setHintError] = useState<string | null>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -34,6 +41,7 @@ export function PracticePanel({ pair, onClose }: Props) {
       setEditing(false);
       setShowNote(false);
       setError(null);
+      setHintError(null);
     }
   }, [pair?.id]);
 
@@ -50,6 +58,23 @@ export function PracticePanel({ pair, onClose }: Props) {
       await analyze(pair.id, pair.japanese, pair.chinese, translation);
     } catch (e) {
       setError(e instanceof Error ? e.message : '分析失败');
+    }
+  };
+
+  const handleGetHint = async () => {
+    if (!pair || !aiProvider.apiKey) {
+      setHintError('请先在设置中配置 AI API Key');
+      return;
+    }
+    setLoadingHint(true);
+    setHintError(null);
+    try {
+      const text = await generateBacktranslateHints(aiProvider, pair.japanese, pair.chinese);
+      setHint(pair.id, text);
+    } catch (e) {
+      setHintError(e instanceof Error ? e.message : '获取提示失败');
+    } finally {
+      setLoadingHint(false);
     }
   };
 
@@ -160,6 +185,70 @@ export function PracticePanel({ pair, onClose }: Props) {
             <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
               {pair.chinese}
             </p>
+          )}
+        </div>
+
+        {/* Backtranslate hints */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="tag">回译提示</span>
+            <button
+              onClick={handleGetHint}
+              disabled={loadingHint}
+              className="flex items-center gap-1.5 text-xs px-3 py-1 rounded transition-all"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                backgroundColor: 'rgba(124, 106, 173, 0.1)',
+                color: 'var(--accent-secondary)',
+                opacity: loadingHint ? 0.5 : 1,
+              }}
+            >
+              {loadingHint ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  生成中
+                </>
+              ) : (
+                <>
+                  <FiZap size={12} />
+                  {hint ? '重新生成' : '获取提示'}
+                </>
+              )}
+            </button>
+          </div>
+
+          {hintError && (
+            <p className="text-xs mb-2" style={{ color: 'var(--error-color)' }}>
+              {hintError}
+            </p>
+          )}
+
+          {hint && (
+            <div
+              className="text-sm space-y-3 p-3 rounded"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                fontFamily: 'var(--font-body)',
+                color: 'var(--ink-secondary)',
+                lineHeight: '1.6',
+              }}
+            >
+              {hint.split('\n').filter(Boolean).map((line, i) => {
+                // Check if line starts with 【】
+                if (line.startsWith('【') && line.includes('】')) {
+                  const match = line.match(/^(【[^】]+】)(.*)$/);
+                  if (match) {
+                    return (
+                      <p key={i}>
+                        <strong style={{ color: 'var(--accent-primary)' }}>{match[1]}</strong>
+                        {match[2]}
+                      </p>
+                    );
+                  }
+                }
+                return <p key={i}>{line}</p>;
+              })}
+            </div>
           )}
         </div>
 
