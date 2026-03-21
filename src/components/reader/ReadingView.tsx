@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { SentencePairCard } from './SentencePairCard';
 import { PracticePanel } from './PracticePanel';
 import { ShortcutHelp } from './ShortcutHelp';
+import { BookmarkPicker } from './BookmarkPicker';
 import { EpubUploader } from '../import/EpubUploader';
 
 export function ReadingView() {
@@ -20,6 +21,7 @@ export function ReadingView() {
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [inputMode, setInputMode] = useState(false);
+  const [bookmarkPairId, setBookmarkPairId] = useState<string | null>(null);
   const lastSelectedPairId = useRef<string | null>(null);
 
   const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
@@ -122,6 +124,26 @@ export function ReadingView() {
     }
   }, [selectedPairId]);
 
+  // 书签跳转
+  const scrollToPairId = useBookStore((s) => s.scrollToPairId);
+  useEffect(() => {
+    if (!scrollToPairId || !containerRef.current) return;
+    const element = pairRefs.current.get(scrollToPairId);
+    if (element) {
+      setSelectedPairId(scrollToPairId);
+      lastSelectedPairId.current = scrollToPairId;
+      
+      requestAnimationFrame(() => {
+        if (!containerRef.current) return;
+        const container = containerRef.current;
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        const targetScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2);
+        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+      });
+    }
+  }, [scrollToPairId]);
+
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
     if (selectedPairId && e.target === e.currentTarget) {
@@ -197,8 +219,10 @@ export function ReadingView() {
             <SentencePairCard
               key={pair.id}
               pair={pair}
+              chapterId={currentChapter.id}
               isSelected={selectedPairId === pair.id}
               onSelect={() => handleSelectPair(pair.id === selectedPairId ? null : pair.id)}
+              onBookmarkClick={() => setBookmarkPairId(pair.id)}
               ref={(el) => {
                 if (el) {
                   pairRefs.current.set(pair.id, el);
@@ -226,6 +250,13 @@ export function ReadingView() {
       />
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
+      {bookmarkPairId && currentChapter && (
+        <BookmarkPicker
+          pairId={bookmarkPairId}
+          chapterId={currentChapter.id}
+          onClose={() => setBookmarkPairId(null)}
+        />
+      )}
     </div>
   );
 }

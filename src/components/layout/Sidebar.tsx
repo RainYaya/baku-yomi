@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
-import { FiBookOpen, FiTrash2, FiPlus, FiChevronRight } from 'react-icons/fi';
+import { useBookmarkStore, BOOKMARK_COLORS } from '../../stores/bookmarkSlice';
+import { FiBookOpen, FiTrash2, FiPlus, FiChevronRight, FiBookmark } from 'react-icons/fi';
 import { useRef } from 'react';
 import { useEpubParser } from '../../hooks/useEpubParser';
 
 export function Sidebar() {
-  const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook, readingProgress } =
+  const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook, readingProgress, setScrollToPairId } =
     useBookStore();
   const currentBook = useBookStore((s) => s.getCurrentBook());
+  const currentChapter = useBookStore((s) => s.getCurrentChapter());
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const bookmarks = useBookmarkStore((s) => currentChapter ? s.getBookmarksByChapter(currentChapter.id) : []);
+  const [showBookmarks, setShowBookmarks] = useState(false);
   const { parseFile, parsing } = useEpubParser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -182,6 +187,81 @@ export function Sidebar() {
                 );
               })}
             </ul>
+          </div>
+        </>
+      )}
+
+      {/* Bookmark list */}
+      {currentChapter && bookmarks.length > 0 && (
+        <>
+          <div
+            className="mx-5"
+            style={{ height: '1px', backgroundColor: 'var(--border-light)' }}
+          />
+          <div className="p-5">
+            <button
+              onClick={() => setShowBookmarks(!showBookmarks)}
+              className="w-full flex items-center justify-between mb-3"
+            >
+              <h2
+                className="text-xs font-medium"
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  color: 'var(--ink-muted)',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                书签
+              </h2>
+              <span
+                className="text-xs px-2 py-0.5 rounded"
+                style={{
+                  backgroundColor: 'var(--accent-subtle)',
+                  color: 'var(--accent-primary)',
+                  fontFamily: 'var(--font-ui)',
+                }}
+              >
+                {bookmarks.length}
+              </span>
+            </button>
+
+            {showBookmarks && (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {bookmarks.map((bookmark) => {
+                  const pair = currentChapter.pairs.find(p => p.id === bookmark.pairId);
+                  const color = BOOKMARK_COLORS.find(c => c.id === bookmark.colorId);
+
+                  return (
+                    <button
+                      key={bookmark.pairId}
+                      onClick={() => {
+                        setScrollToPairId(bookmark.pairId);
+                        setShowBookmarks(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded transition-all flex items-start gap-2 hover:opacity-80"
+                      style={{
+                        backgroundColor: color?.bg || 'transparent',
+                      }}
+                    >
+                      <FiBookmark
+                        size={12}
+                        className="mt-1 flex-shrink-0"
+                        style={{ color: color?.border || 'var(--ink-muted)' }}
+                      />
+                      <span
+                        className="text-xs truncate flex-1"
+                        style={{
+                          fontFamily: 'var(--font-reading)',
+                          color: 'var(--ink-secondary)',
+                        }}
+                      >
+                        {pair?.japanese || '句子已不存在'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </>
       )}

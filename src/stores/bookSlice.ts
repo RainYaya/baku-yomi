@@ -8,6 +8,8 @@ interface BookState {
   currentChapterIndex: number;
   // chapterId -> pairIndex (last visible pair)
   readingProgress: Record<string, number>;
+  // 用于书签跳转
+  scrollToPairId: string | null;
 
   addBook: (book: Book) => void;
   removeBook: (id: string) => void;
@@ -18,6 +20,7 @@ interface BookState {
   updatePairChinese: (pairId: string, chinese: string) => void;
   setReadingProgress: (chapterId: string, pairIndex: number) => void;
   getReadingProgress: (chapterId: string) => number;
+  setScrollToPairId: (pairId: string | null) => void;
 }
 
 export const useBookStore = create<BookState>()(
@@ -27,6 +30,7 @@ export const useBookStore = create<BookState>()(
       currentBookId: null,
       currentChapterIndex: 0,
       readingProgress: {},
+      scrollToPairId: null,
 
       addBook: (book) =>
         set((state) => ({
@@ -82,6 +86,9 @@ export const useBookStore = create<BookState>()(
 
       getReadingProgress: (chapterId) =>
         get().readingProgress[chapterId] ?? 0,
+
+      setScrollToPairId: (pairId) =>
+        set({ scrollToPairId: pairId }),
     }),
     { name: 'book-store' }
   )
