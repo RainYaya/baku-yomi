@@ -4,8 +4,12 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { SentencePairCard } from './SentencePairCard';
 import { PracticePanel } from './PracticePanel';
 import { ShortcutHelp } from './ShortcutHelp';
-import { BookmarkPicker } from './BookmarkPicker';
+import { SelectionPopover } from './SelectionPopover';
+import { BookmarkList } from './BookmarkList';
+import { useTextSelection } from '../../hooks/useTextSelection';
+import { useBookmarkStore } from '../../stores/bookmarkSlice';
 import { EpubUploader } from '../import/EpubUploader';
+import { FiBookmark } from 'react-icons/fi';
 
 export function ReadingView() {
   const currentBook = useBookStore((s) => s.getCurrentBook());
@@ -21,8 +25,13 @@ export function ReadingView() {
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [inputMode, setInputMode] = useState(false);
-  const [bookmarkPairId, setBookmarkPairId] = useState<string | null>(null);
+  const [showBookmarkList, setShowBookmarkList] = useState(false);
   const lastSelectedPairId = useRef<string | null>(null);
+
+  const { selection, clearSelection } = useTextSelection();
+  const scrollToBookmarkId = useBookmarkStore((s) => s.scrollToBookmarkId);
+  const setScrollToBookmarkId = useBookmarkStore((s) => s.setScrollToBookmarkId);
+  const getBookmarkById = useBookmarkStore((s) => s.getBookmarkById);
 
   const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
 
@@ -67,6 +76,7 @@ export function ReadingView() {
           setSelectedPairId(null);
           setInputMode(false);
         }
+        clearSelection();
         return;
       }
 
@@ -109,7 +119,7 @@ export function ReadingView() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentChapter, selectedPairId, focusInput, blurInput]);
+  }, [currentChapter, selectedPairId, focusInput, blurInput, clearSelection]);
 
   // 选中变化时滚动到可视区域
   useEffect(() => {
@@ -125,13 +135,18 @@ export function ReadingView() {
   }, [selectedPairId]);
 
   // 书签跳转
-  const scrollToPairId = useBookStore((s) => s.scrollToPairId);
   useEffect(() => {
-    if (!scrollToPairId || !containerRef.current) return;
-    const element = pairRefs.current.get(scrollToPairId);
+    if (!scrollToBookmarkId || !containerRef.current) return;
+    
+    const bookmark = getBookmarkById(scrollToBookmarkId);
+    if (!bookmark) {
+      setScrollToBookmarkId(null);
+      return;
+    }
+
+    const element = pairRefs.current.get(bookmark.pairId);
     if (element) {
-      setSelectedPairId(scrollToPairId);
-      lastSelectedPairId.current = scrollToPairId;
+      handleSelectPair(bookmark.pairId);
       
       requestAnimationFrame(() => {
         if (!containerRef.current) return;
@@ -142,13 +157,15 @@ export function ReadingView() {
         container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
       });
     }
-  }, [scrollToPairId]);
+    setScrollToBookmarkId(null);
+  }, [scrollToBookmarkId, getBookmarkById, setScrollToBookmarkId]);
 
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
     if (selectedPairId && e.target === e.currentTarget) {
       setSelectedPairId(null);
     }
+    clearSelection();
   };
 
   // Restore scroll position when chapter changes
@@ -219,10 +236,8 @@ export function ReadingView() {
             <SentencePairCard
               key={pair.id}
               pair={pair}
-              chapterId={currentChapter.id}
               isSelected={selectedPairId === pair.id}
               onSelect={() => handleSelectPair(pair.id === selectedPairId ? null : pair.id)}
-              onBookmarkClick={() => setBookmarkPairId(pair.id)}
               ref={(el) => {
                 if (el) {
                   pairRefs.current.set(pair.id, el);
@@ -249,12 +264,56 @@ export function ReadingView() {
         style={{ width: `${progressPct}%` }}
       />
 
+      {/* Bookmark button */}
+      <button
+        onClick={() => setShowBookmarkList(!showBookmarkList)}
+        className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg z-40 transition-all hover:scale-105"
+        style={{
+          backgroundColor: 'var(--bg-paper)',
+          border: '1px solid var(--border-light)',
+          color: showBookmarkList ? 'var(--accent-primary)' : 'var(--ink-muted)',
+        }}
+        title="书签列表"
+      >
+        <FiBookmark size={20} />
+      </button>
+
+      {/* Bookmark list panel */}
+      {showBookmarkList && (
+        <div
+          className="fixed bottom-20 right-6 w-72 max-h-80 rounded-lg shadow-xl z-40 animate-slide-up"
+          style={{
+            backgroundColor: 'var(--bg-paper)',
+            border: '1px solid var(--border-light)',
+          }}
+        >
+          <div
+            className="px-4 py-3 border-b"
+            style={{ borderColor: 'var(--border-light)' }}
+          >
+            <h3
+              className="text-sm font-medium"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                color: 'var(--ink-primary)',
+                letterSpacing: '0.08em',
+              }}
+            >
+              书签列表
+            </h3>
+          </div>
+          <BookmarkList onClose={() => setShowBookmarkList(false)} />
+        </div>
+      )}
+
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
-      {bookmarkPairId && currentChapter && (
-        <BookmarkPicker
-          pairId={bookmarkPairId}
+      
+      {/* Selection popover */}
+      {selection && currentChapter && (
+        <SelectionPopover
+          selection={selection}
           chapterId={currentChapter.id}
-          onClose={() => setBookmarkPairId(null)}
+          onClose={clearSelection}
         />
       )}
     </div>
