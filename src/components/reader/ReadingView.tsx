@@ -20,12 +20,19 @@ export function ReadingView() {
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [inputMode, setInputMode] = useState(false);
+  const lastSelectedPairId = useRef<string | null>(null);
 
   const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
 
   const handleClosePanel = () => {
-    setSelectedPairId(null);
     setInputMode(false);
+  };
+
+  const handleSelectPair = (pairId: string | null) => {
+    if (pairId) {
+      lastSelectedPairId.current = pairId;
+    }
+    setSelectedPairId(pairId);
   };
 
   const focusInput = useCallback(() => {
@@ -63,19 +70,28 @@ export function ReadingView() {
 
       if (isInput) return;
 
+      // 用 lastSelectedPairId 作为当前位置基准
+      const currentId = selectedPairId ?? lastSelectedPairId.current;
+
       if (e.key === 'j') {
         e.preventDefault();
-        const currentIndex = selectedPairId ? pairs.findIndex(p => p.id === selectedPairId) : -1;
+        const currentIndex = currentId ? pairs.findIndex(p => p.id === currentId) : -1;
         if (currentIndex < pairs.length - 1) {
-          setSelectedPairId(pairs[currentIndex + 1].id);
+          const newId = pairs[currentIndex + 1].id;
+          lastSelectedPairId.current = newId;
+          setSelectedPairId(newId);
         } else if (currentIndex === -1 && pairs.length > 0) {
-          setSelectedPairId(pairs[0].id);
+          const newId = pairs[0].id;
+          lastSelectedPairId.current = newId;
+          setSelectedPairId(newId);
         }
       } else if (e.key === 'k') {
         e.preventDefault();
-        const currentIndex = selectedPairId ? pairs.findIndex(p => p.id === selectedPairId) : -1;
+        const currentIndex = currentId ? pairs.findIndex(p => p.id === currentId) : -1;
         if (currentIndex > 0) {
-          setSelectedPairId(pairs[currentIndex - 1].id);
+          const newId = pairs[currentIndex - 1].id;
+          lastSelectedPairId.current = newId;
+          setSelectedPairId(newId);
         }
       } else if (e.key === 'g' && !e.repeat) {
         giPending = true;
@@ -182,7 +198,7 @@ export function ReadingView() {
               key={pair.id}
               pair={pair}
               isSelected={selectedPairId === pair.id}
-              onSelect={() => setSelectedPairId(pair.id === selectedPairId ? null : pair.id)}
+              onSelect={() => handleSelectPair(pair.id === selectedPairId ? null : pair.id)}
               ref={(el) => {
                 if (el) {
                   pairRefs.current.set(pair.id, el);
