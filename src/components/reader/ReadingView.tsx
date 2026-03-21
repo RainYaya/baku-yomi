@@ -97,8 +97,12 @@ export function ReadingView() {
   useEffect(() => {
     if (!selectedPairId || !containerRef.current) return;
     const element = pairRefs.current.get(selectedPairId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (element && containerRef.current) {
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const targetScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2);
+      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
     }
   }, [selectedPairId]);
 
