@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import type { SentencePair as SentencePairType } from '../../types';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { usePracticeStore } from '../../stores/practiceSlice';
@@ -28,7 +29,7 @@ function JapaneseText({
   return <p className={className} style={style}>{pair.japanese}</p>;
 }
 
-export function SentencePairCard({ pair, isSelected, onSelect }: Props) {
+export const SentencePairCard = forwardRef<HTMLElement, Props>(function SentencePairCard({ pair, isSelected, onSelect }, ref) {
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
@@ -36,6 +37,7 @@ export function SentencePairCard({ pair, isSelected, onSelect }: Props) {
 
   return (
     <article
+      ref={ref}
       className="group cursor-pointer relative transition-all duration-200"
       style={{
         borderBottom: '1px solid var(--border-light)',
@@ -82,4 +84,4 @@ export function SentencePairCard({ pair, isSelected, onSelect }: Props) {
       </div>
     </article>
   );
-}
+});

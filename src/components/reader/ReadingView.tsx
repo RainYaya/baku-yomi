@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { SentencePairCard } from './SentencePairCard';
@@ -14,13 +14,93 @@ export function ReadingView() {
   const fontZoom = useSettingsStore((s) => s.fontZoom);
   const containerRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
+  const pairRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [inputMode, setInputMode] = useState(false);
 
   const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
 
-  const handleClosePanel = () => setSelectedPairId(null);
+  const handleClosePanel = () => {
+    setSelectedPairId(null);
+    setInputMode(false);
+  };
+
+  const focusInput = useCallback(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      setInputMode(true);
+    }
+  }, []);
+
+  const blurInput = useCallback(() => {
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+    setInputMode(false);
+  }, []);
+
+  // j/k 导航 & gi/ESC 快捷键
+  useEffect(() => {
+    const pairs = currentChapter?.pairs ?? [];
+    let giPending = false;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable;
+
+      if (e.key === 'Escape') {
+        if (isInput) {
+          blurInput();
+        } else if (selectedPairId) {
+          setSelectedPairId(null);
+          setInputMode(false);
+        }
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === 'j') {
+        e.preventDefault();
+        const currentIndex = selectedPairId ? pairs.findIndex(p => p.id === selectedPairId) : -1;
+        if (currentIndex < pairs.length - 1) {
+          setSelectedPairId(pairs[currentIndex + 1].id);
+        } else if (currentIndex === -1 && pairs.length > 0) {
+          setSelectedPairId(pairs[0].id);
+        }
+      } else if (e.key === 'k') {
+        e.preventDefault();
+        const currentIndex = selectedPairId ? pairs.findIndex(p => p.id === selectedPairId) : -1;
+        if (currentIndex > 0) {
+          setSelectedPairId(pairs[currentIndex - 1].id);
+        }
+      } else if (e.key === 'g' && !e.repeat) {
+        giPending = true;
+        setTimeout(() => { giPending = false; }, 500);
+      } else if (e.key === 'i' && giPending && selectedPairId) {
+        e.preventDefault();
+        focusInput();
+        giPending = false;
+      } else if (e.key === '?') {
+        setShowHelp(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentChapter, selectedPairId, focusInput, blurInput]);
+
+  // 选中变化时滚动到可视区域
+  useEffect(() => {
+    if (!selectedPairId || !containerRef.current) return;
+    const element = pairRefs.current.get(selectedPairId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedPairId]);
 
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
@@ -90,6 +170,7 @@ export function ReadingView() {
         className="flex-1 overflow-y-auto pb-20"
         style={{ fontSize: `${17 * fontZoom}px` }}
         onClick={handleReadingAreaClick}
+        tabIndex={-1}
       >
         <div className="max-w-2xl mx-auto px-8 py-6">
           {currentChapter.pairs.map((pair) => (
@@ -98,13 +179,25 @@ export function ReadingView() {
               pair={pair}
               isSelected={selectedPairId === pair.id}
               onSelect={() => setSelectedPairId(pair.id === selectedPairId ? null : pair.id)}
+              ref={(el) => {
+                if (el) {
+                  pairRefs.current.set(pair.id, el);
+                } else {
+                  pairRefs.current.delete(pair.id);
+                }
+              }}
             />
           ))}
         </div>
       </div>
 
       {/* Practice panel */}
-      <PracticePanel pair={selectedPair} onClose={handleClosePanel} />
+      <PracticePanel
+        pair={selectedPair}
+        onClose={handleClosePanel}
+        inputRef={inputRef}
+        inputMode={inputMode}
+      />
 
       {/* Reading progress */}
       <div

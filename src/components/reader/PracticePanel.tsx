@@ -11,9 +11,11 @@ import { FiX, FiSend, FiMessageSquare, FiZap, FiHelpCircle } from 'react-icons/f
 interface Props {
   pair: SentencePairType | null;
   onClose: () => void;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+  inputMode: boolean;
 }
 
-export function PracticePanel({ pair, onClose }: Props) {
+export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
   const translation = usePracticeStore((s) => pair ? s.translations[pair.id] ?? '' : '');
   const analysis = usePracticeStore((s) => pair ? s.analyses[pair.id] : null);
   const note = usePracticeStore((s) => pair ? s.notes[pair.id] ?? '' : '');
@@ -34,7 +36,6 @@ export function PracticePanel({ pair, onClose }: Props) {
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [hintError, setHintError] = useState<string | null>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const isAnalyzing = analyzingPairId === pair?.id;
 
@@ -48,11 +49,12 @@ export function PracticePanel({ pair, onClose }: Props) {
     }
   }, [pair?.id]);
 
+  // inputMode 变化时控制 focus
   useEffect(() => {
-    if (pair && inputRef.current) {
+    if (inputMode && pair && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [pair?.id]);
+  }, [inputMode, pair?.id]);
 
   const handleSubmit = async () => {
     if (!pair || !translation.trim()) return;

@@ -4,6 +4,8 @@ import { buildAnalysisPrompt, buildHintPrompt, buildBacktranslateHintPrompt } fr
 /**
  * 生成回译提示 - 帮助用户从中文思考日语表达
  */
+export const generateHints = generateBacktranslateHints;
+
 export async function generateBacktranslateHints(
   config: AIProviderConfig,
   original: string,

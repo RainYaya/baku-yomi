@@ -1,17 +1,13 @@
-import { FiX } from 'react-icons/fi';
-
 interface Props {
   onClose: () => void;
 }
 
 const shortcuts = [
-  { keys: ['j', '↓'], desc: '下一句' },
-  { keys: ['k', '↑'], desc: '上一句' },
-  { keys: ['Enter'], desc: '展开/收起' },
-  { keys: ['n'], desc: '笔记' },
-  { keys: ['Ctrl', 'Enter'], desc: '提交分析' },
-  { keys: ['Esc'], desc: '关闭' },
-  { keys: ['?'], desc: '帮助' },
+  { keys: ['j'], desc: '选择下一句（Vim 模式）' },
+  { keys: ['k'], desc: '选择上一句（Vim 模式）' },
+  { keys: ['gi'], desc: '进入输入框' },
+  { keys: ['Esc'], desc: '退出输入 / 关闭面板' },
+  { keys: ['?'], desc: '显示帮助' },
 ];
 
 export function ShortcutHelp({ onClose }: Props) {
@@ -30,7 +26,6 @@ export function ShortcutHelp({ onClose }: Props) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h3
             className="text-sm font-medium"
@@ -42,25 +37,14 @@ export function ShortcutHelp({ onClose }: Props) {
           >
             快捷键
           </h3>
-          <button
-            onClick={onClose}
-            className="p-1 opacity-40 hover:opacity-100 transition-opacity"
-          >
-            <FiX size={16} />
-          </button>
         </div>
 
-        {/* Shortcuts list */}
         <div className="space-y-3">
           {shortcuts.map(({ keys, desc }) => (
-            <div
-              key={desc}
-              className="flex items-center justify-between"
-              style={{ fontFamily: 'var(--font-ui)' }}
-            >
+            <div key={desc} className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 {keys.map((key, i) => (
-                  <span key={i} className="flex items-center">
+                  <span key={i}>
                     <kbd
                       className="px-2 py-1 text-xs"
                       style={{
@@ -79,17 +63,13 @@ export function ShortcutHelp({ onClose }: Props) {
                   </span>
                 ))}
               </div>
-              <span
-                className="text-sm"
-                style={{ color: 'var(--ink-muted)' }}
-              >
+              <span className="text-sm" style={{ color: 'var(--ink-muted)' }}>
                 {desc}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Footer hint */}
         <p
           className="text-xs text-center mt-6 opacity-40"
           style={{ fontFamily: 'var(--font-ui)' }}
