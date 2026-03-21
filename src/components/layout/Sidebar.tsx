@@ -5,12 +5,18 @@ import { FiBookOpen, FiTrash2, FiPlus, FiChevronRight } from 'react-icons/fi';
 import { useEpubParser } from '../../hooks/useEpubParser';
 
 export function Sidebar() {
-  const { books, currentBookId, setCurrentBook, setCurrentChapter, removeBook, readingProgress } =
-    useBookStore();
-  const currentBook = useBookStore((s) => s.getCurrentBook());
+  const books = useBookStore((s) => s.books);
+  const currentBookId = useBookStore((s) => s.currentBookId);
+  const currentChapterIndex = useBookStore((s) => s.currentChapterIndex);
+  const readingProgress = useBookStore((s) => s.readingProgress);
+  const setCurrentBook = useBookStore((s) => s.setCurrentBook);
+  const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
+  const removeBook = useBookStore((s) => s.removeBook);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const { parseFile, parsing } = useEpubParser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentBook = books.find((b) => b.id === currentBookId) ?? null;
 
   if (!sidebarOpen) return null;
 
@@ -78,10 +84,10 @@ export function Sidebar() {
         ) : (
           <ul className="space-y-1">
             {books.map((book) => (
-              <li key={book.id}>
+              <li key={book.id} className="group flex items-center">
                 <button
                   onClick={() => setCurrentBook(book.id)}
-                  className="w-full text-left px-3 py-2.5 rounded transition-all group flex items-center gap-2"
+                  className="flex-1 text-left px-3 py-2.5 rounded transition-all flex items-center gap-2"
                   style={{
                     backgroundColor:
                       currentBookId === book.id ? 'var(--accent-subtle)' : 'transparent',
@@ -101,16 +107,13 @@ export function Sidebar() {
                   >
                     {book.title}
                   </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeBook(book.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity p-1"
-                    style={{ color: 'var(--error-color)' }}
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
+                </button>
+                <button
+                  onClick={() => removeBook(book.id)}
+                  className="opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity p-2"
+                  style={{ color: 'var(--error-color)' }}
+                >
+                  <FiTrash2 size={14} />
                 </button>
               </li>
             ))}
@@ -143,7 +146,7 @@ export function Sidebar() {
                   chapter.pairs.length > 0
                     ? Math.round((progress / chapter.pairs.length) * 100)
                     : 0;
-                const isActive = useBookStore.getState().currentChapterIndex === idx;
+                const isActive = currentChapterIndex === idx;
 
                 return (
                   <li key={chapter.id}>

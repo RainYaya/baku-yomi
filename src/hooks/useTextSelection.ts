@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface SelectionInfo {
   pairId: string;
@@ -10,22 +10,23 @@ export interface SelectionInfo {
 
 export function useTextSelection() {
   const [selection, setSelection] = useState<SelectionInfo | null>(null);
+  const justSelectedRef = useRef(false);
 
-  const handleSelectionChange = useCallback(() => {
+  const handleMouseUp = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
       setSelection(null);
       return;
     }
 
-    const range = sel.getRangeAt(0);
     const text = sel.toString().trim();
-    
     if (!text) {
       setSelection(null);
       return;
     }
 
+    const range = sel.getRangeAt(0);
+    
     // 检查是否在 SentencePairCard 内
     const container = range.commonAncestorContainer;
     const pairCard = (container instanceof Element ? container : container.parentElement)
@@ -51,6 +52,7 @@ export function useTextSelection() {
     const startOffset = preRange.toString().length;
     const endOffset = startOffset + text.length;
 
+    justSelectedRef.current = true;
     setSelection({
       pairId,
       startOffset,
@@ -58,21 +60,29 @@ export function useTextSelection() {
       text,
       rect,
     });
+
+    // 500ms 后重置标记
+    setTimeout(() => {
+      justSelectedRef.current = false;
+    }, 500);
   }, []);
 
   useEffect(() => {
-    document.addEventListener('mouseup', handleSelectionChange);
-    document.addEventListener('touchend', handleSelectionChange);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchend', handleMouseUp);
     return () => {
-      document.removeEventListener('mouseup', handleSelectionChange);
-      document.removeEventListener('touchend', handleSelectionChange);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchend', handleMouseUp);
     };
-  }, [handleSelectionChange]);
+  }, [handleMouseUp]);
 
   const clearSelection = useCallback(() => {
     window.getSelection()?.removeAllRanges();
     setSelection(null);
   }, []);
 
-  return { selection, clearSelection };
+  // 导出标记，供外部判断
+  const hasJustSelected = () => justSelectedRef.current;
+
+  return { selection, clearSelection, hasJustSelected };
 }

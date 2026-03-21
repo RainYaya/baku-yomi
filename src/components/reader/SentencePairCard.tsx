@@ -21,7 +21,11 @@ function JapaneseText({
   style?: React.CSSProperties;
 }) {
   const showFurigana = useSettingsStore((s) => s.showFurigana);
-  const bookmarks = useBookmarkStore((s) => s.getBookmarksByPair(pair.id));
+  const allBookmarks = useBookmarkStore((s) => s.bookmarks);
+  const bookmarks = useMemo(() => 
+    allBookmarks.filter(b => b.pairId === pair.id),
+    [allBookmarks, pair.id]
+  );
 
   const renderedContent = useMemo(() => {
     if (!showFurigana || !pair.japaneseHtml) {
@@ -52,7 +56,7 @@ function JapaneseText({
     
     // TODO: HTML 模式下处理高亮比较复杂，暂时返回原内容
     return <span dangerouslySetInnerHTML={{ __html: pair.japaneseHtml }} />;
-  }, [pair.japanese, pair.japaneseHtml, showFurigana, bookmarks]);
+  }, [pair.japanese, pair.japaneseHtml, showFurigana, bookmarks.length, bookmarks.map(b => b.id + b.colorId).join(',')]);
 
   return (
     <p className={className} style={style}>

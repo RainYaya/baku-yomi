@@ -28,7 +28,7 @@ export function ReadingView() {
   const [showBookmarkList, setShowBookmarkList] = useState(false);
   const lastSelectedPairId = useRef<string | null>(null);
 
-  const { selection, clearSelection } = useTextSelection();
+  const { selection, clearSelection, hasJustSelected } = useTextSelection();
   const scrollToBookmarkId = useBookmarkStore((s) => s.scrollToBookmarkId);
   const setScrollToBookmarkId = useBookmarkStore((s) => s.setScrollToBookmarkId);
   const getBookmarkById = useBookmarkStore((s) => s.getBookmarkById);
@@ -162,6 +162,9 @@ export function ReadingView() {
 
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
+    // 如果刚刚有文字选中，不处理（让 SelectionPopover 处理）
+    if (hasJustSelected()) return;
+    
     if (selectedPairId && e.target === e.currentTarget) {
       setSelectedPairId(null);
     }
