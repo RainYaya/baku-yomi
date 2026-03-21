@@ -1,7 +1,12 @@
 import type { AIProviderConfig, AnalysisResult } from '../../types';
-import { buildAnalysisPrompt, buildHintPrompt } from './prompts';
+import { buildAnalysisPrompt, buildHintPrompt, buildBacktranslateHintPrompt } from './prompts';
 
-export async function generateHints(
+/**
+ * 生成回译提示 - 帮助用户从中文思考日语表达
+ */
+export const generateHints = generateBacktranslateHints;
+
+export async function generateBacktranslateHints(
   config: AIProviderConfig,
   original: string,
   chinese: string
@@ -23,6 +28,37 @@ export async function generateHints(
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`AI hint generation failed: ${err}`);
+  }
+
+  const data = await response.json();
+  return data.text;
+}
+
+/**
+ * 优化译文 - 将机翻译文改写成适合回译的版本
+ */
+export async function optimizeTranslationForBacktranslation(
+  config: AIProviderConfig,
+  original: string,
+  chinese: string
+): Promise<string> {
+  const prompt = buildBacktranslateHintPrompt(original, chinese);
+
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider: config.type,
+      apiKey: config.apiKey,
+      model: config.model,
+      baseUrl: config.baseUrl,
+      prompt,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`AI optimization failed: ${err}`);
   }
 
   const data = await response.json();
@@ -59,7 +95,7 @@ export async function analyzeTranslation(
   const rawMarkdown: string = data.text;
 
   // Extract score
-  const scoreMatch = rawMarkdown.match(/【総合評価】\s*(\d+)/);
+  const scoreMatch = rawMarkdown.match(/【综合评分】\s*(\d+)/);
   const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
 
   return {

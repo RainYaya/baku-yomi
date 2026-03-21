@@ -26,3 +26,4 @@ dist-ssr
 # EPUB files and extracted resources
 *.epub
 /images/
+.alma-snapshots
