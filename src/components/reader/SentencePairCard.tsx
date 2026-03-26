@@ -28,12 +28,8 @@ function JapaneseText({
   );
 
   const renderedContent = useMemo(() => {
-    if (!showFurigana || !pair.japaneseHtml) {
-      // 纯文本模式，需要手动应用高亮
-      if (bookmarks.length === 0) {
-        return pair.japanese;
-      }
-      
+    // 如果有书签，优先显示书签高亮（用纯文本模式）
+    if (bookmarks.length > 0) {
       // 按 endOffset 排序，从后往前替换
       const sorted = [...bookmarks].sort((a, b) => b.endOffset - a.endOffset);
       let text = pair.japanese;
@@ -49,13 +45,12 @@ function JapaneseText({
       return <span dangerouslySetInnerHTML={{ __html: text }} />;
     }
     
-    // HTML 模式（带振り仮名）
-    if (bookmarks.length === 0) {
+    // 没有书签时，按正常模式显示
+    if (showFurigana && pair.japaneseHtml) {
       return <span dangerouslySetInnerHTML={{ __html: pair.japaneseHtml }} />;
     }
     
-    // TODO: HTML 模式下处理高亮比较复杂，暂时返回原内容
-    return <span dangerouslySetInnerHTML={{ __html: pair.japaneseHtml }} />;
+    return pair.japanese;
   }, [pair.japanese, pair.japaneseHtml, showFurigana, bookmarks.length, bookmarks.map(b => b.id + b.colorId).join(',')]);
 
   return (
@@ -71,6 +66,15 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
   const hasWork = translation.trim() || analysis || note.trim();
 
+  const handleClick = () => {
+    // 如果有文字被选中，不触发选择句子（让书签选择器处理）
+    const selectedText = window.getSelection()?.toString().trim();
+    if (selectedText) {
+      return;
+    }
+    onSelect();
+  };
+
   return (
     <article
       ref={ref}
@@ -82,7 +86,7 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
         backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
         borderRadius: isSelected ? '6px' : '0',
       }}
-      onClick={onSelect}
+      onClick={handleClick}
     >
       {/* Selected indicator */}
       {isSelected && (

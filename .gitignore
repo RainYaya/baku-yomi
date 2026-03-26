@@ -27,3 +27,6 @@ dist-ssr
 *.epub
 /images/
 .alma-snapshots
+
+# vibe-learn session logs
+.vibe-learn/

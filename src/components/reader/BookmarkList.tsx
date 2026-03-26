@@ -7,12 +7,15 @@ interface Props {
 }
 
 export function BookmarkList({ onClose }: Props) {
-  const currentChapter = useBookStore((s) => s.getCurrentChapter());
-  const bookmarks = useBookmarkStore((s) => 
-    currentChapter ? s.getBookmarksByChapter(currentChapter.id) : []
-  );
+  const currentChapterId = useBookStore((s) => s.getCurrentChapter()?.id ?? null);
+  const currentChapterPairs = useBookStore((s) => s.getCurrentChapter()?.pairs ?? []);
+  const allBookmarks = useBookmarkStore((s) => s.bookmarks);
   const removeBookmark = useBookmarkStore((s) => s.removeBookmark);
   const setScrollToBookmarkId = useBookmarkStore((s) => s.setScrollToBookmarkId);
+
+  const bookmarks = currentChapterId
+    ? allBookmarks.filter((b) => b.chapterId === currentChapterId)
+    : [];
 
   if (bookmarks.length === 0) {
     return (
@@ -26,8 +29,8 @@ export function BookmarkList({ onClose }: Props) {
   return (
     <div className="max-h-64 overflow-y-auto">
       {bookmarks.map((bookmark) => {
-        const color = BOOKMARK_COLORS.find(c => c.id === bookmark.colorId);
-        const pair = currentChapter?.pairs.find(p => p.id === bookmark.pairId);
+        const color = BOOKMARK_COLORS.find((c) => c.id === bookmark.colorId);
+        const pair = currentChapterPairs.find((p) => p.id === bookmark.pairId);
 
         return (
           <div
@@ -51,8 +54,8 @@ export function BookmarkList({ onClose }: Props) {
             <div className="flex-1 min-w-0">
               <p
                 className="text-sm truncate"
-                style={{ 
-                  fontFamily: 'var(--font-reading)', 
+                style={{
+                  fontFamily: 'var(--font-reading)',
                   color: 'var(--ink-primary)',
                   borderLeft: color ? `2px solid ${color.border}` : 'none',
                   paddingLeft: '0.5rem',

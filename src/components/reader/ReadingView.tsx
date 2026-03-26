@@ -29,11 +29,15 @@ export function ReadingView() {
   const lastSelectedPairId = useRef<string | null>(null);
 
   const { selection, clearSelection, hasJustSelected } = useTextSelection();
+  const allBookmarks = useBookmarkStore((s) => s.bookmarks);
   const scrollToBookmarkId = useBookmarkStore((s) => s.scrollToBookmarkId);
   const setScrollToBookmarkId = useBookmarkStore((s) => s.setScrollToBookmarkId);
   const getBookmarkById = useBookmarkStore((s) => s.getBookmarkById);
 
-  const selectedPair = currentChapter?.pairs.find(p => p.id === selectedPairId) ?? null;
+  const selectedPair = currentChapter?.pairs.find((p) => p.id === selectedPairId) ?? null;
+  const chapterBookmarkCount = currentChapter
+    ? allBookmarks.filter((b) => b.chapterId === currentChapter.id).length
+    : 0;
 
   const handleClosePanel = () => {
     setInputMode(false);
@@ -269,7 +273,7 @@ export function ReadingView() {
 
       {/* Bookmark button */}
       <button
-        onClick={() => setShowBookmarkList(!showBookmarkList)}
+        onClick={() => setShowBookmarkList((v) => !v)}
         className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg z-40 transition-all hover:scale-105"
         style={{
           backgroundColor: 'var(--bg-paper)',
@@ -278,7 +282,21 @@ export function ReadingView() {
         }}
         title="书签列表"
       >
-        <FiBookmark size={20} />
+        <div className="relative">
+          <FiBookmark size={20} />
+          {chapterBookmarkCount > 0 && (
+            <span
+              className="absolute -top-2 -right-2 text-[10px] leading-none px-1.5 py-0.5 rounded-full"
+              style={{
+                backgroundColor: 'var(--accent-primary)',
+                color: 'var(--bg-paper)',
+                fontFamily: 'var(--font-ui)',
+              }}
+            >
+              {chapterBookmarkCount}
+            </span>
+          )}
+        </div>
       </button>
 
       {/* Bookmark list panel */}
