@@ -59,12 +59,47 @@ function extractPairsFromHtml(htmlParts: string[], chapterIndex: number) {
   );
 }
 
+/** Try to find a cover image URL from loaded spine HTML */
+function extractCoverFromSpineHtml(
+  epub: EpubFile,
+  spine: { id: string; href: string }[],
+  spineHtml: Map<string, string>,
+): string | undefined {
+  // Check if manifest declares a cover-image
+  const manifest = epub.getManifest?.() ?? {};
+  let hasCoverInManifest = false;
+  for (const item of Object.values(manifest) as { properties?: string; mediaType?: string }[]) {
+    if (item.properties?.includes('cover-image') && item.mediaType?.startsWith('image/')) {
+      hasCoverInManifest = true;
+      break;
+    }
+  }
+
+  // Look at first 2 spine items for an <img> or <image> (cover pages are first)
+  const candidates = spine.slice(0, hasCoverInManifest ? 3 : 1);
+  for (const item of candidates) {
+    const html = spineHtml.get(item.id);
+    if (!html) continue;
+
+    // Match <img src="..."> or <image ... href="..."> (SVG wrapped covers)
+    const imgMatch = html.match(
+      /(?:<img[^>]+src=["']([^"']+)["'])|(?:<image[^>]+(?:href|xlink:href)=["']([^"']+)["'])/i
+    );
+    const url = imgMatch?.[1] ?? imgMatch?.[2];
+    if (url) return url;
+  }
+
+  return undefined;
+}
+
 export async function parseEpubFile(file: File): Promise<Book> {
   const epub: EpubFile = await initEpubFile(file);
 
   const metadata = epub.getMetadata?.() ?? epub.metadata ?? {};
   const title = extractText(metadata.title) ?? file.name.replace(/\.epub$/i, '');
   const author = extractCreator(metadata.creator) ?? 'Unknown';
+  const description = extractText(metadata.description) ?? undefined;
+  const publisher = extractText(metadata.publisher) ?? undefined;
   const bookId = `book-${Date.now()}`;
 
   const spine: { id: string; href: string }[] =
@@ -89,6 +124,28 @@ export async function parseEpubFile(file: File): Promise<Book> {
     } catch {
       // skip unloadable items
     }
+  }
+
+  // Extract cover from loaded HTML (blob URLs in browser, file paths in Node)
+  let coverUrl: string | undefined;
+  try {
+    const rawCoverUrl = extractCoverFromSpineHtml(epub, spine, spineHtml);
+    if (rawCoverUrl) {
+      // Convert blob URL to data URL so it survives localStorage persistence
+      if (rawCoverUrl.startsWith('blob:')) {
+        const resp = await fetch(rawCoverUrl);
+        const blob = await resp.blob();
+        coverUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } else if (rawCoverUrl.startsWith('data:')) {
+        coverUrl = rawCoverUrl;
+      }
+    }
+  } catch {
+    // best-effort
   }
 
   const chapters: Chapter[] = [];
@@ -145,6 +202,9 @@ export async function parseEpubFile(file: File): Promise<Book> {
     id: bookId,
     title,
     author,
+    description,
+    publisher,
+    coverUrl,
     chapters,
     importedAt: Date.now(),
   };
