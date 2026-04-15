@@ -5,6 +5,7 @@ interface Props {
 const shortcuts = [
   { keys: ['j'], desc: '选择下一句（Vim 模式）' },
   { keys: ['k'], desc: '选择上一句（Vim 模式）' },
+  { keys: ['r'], desc: '开启 / 停止连续朗读' },
   { keys: ['gi'], desc: '进入输入框' },
   { keys: ['Esc'], desc: '退出输入 / 关闭面板' },
   { keys: ['?'], desc: '显示帮助' },

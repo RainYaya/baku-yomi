@@ -1,4 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  clearVoicevoxCache,
+  getVoicevoxCacheStats,
+  playVoicevox,
+  prefetchVoicevox,
+  setVoicevoxCacheLimit,
+  subscribeVoicevoxEnded,
+  stopVoicevoxPlayback,
+} from '../../lib/tts/voicevox';
 import { useBookStore } from '../../stores/bookSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { SentencePairCard } from './SentencePairCard';
@@ -9,7 +18,7 @@ import { BookmarkList } from './BookmarkList';
 import { useTextSelection } from '../../hooks/useTextSelection';
 import { useBookmarkStore } from '../../stores/bookmarkSlice';
 import { EpubUploader } from '../import/EpubUploader';
-import { FiBookmark } from 'react-icons/fi';
+import { FiBookmark, FiPause, FiPlay } from 'react-icons/fi';
 
 export function ReadingView() {
   const currentBook = useBookStore((s) => s.getCurrentBook());
@@ -17,7 +26,14 @@ export function ReadingView() {
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
   const fontZoom = useSettingsStore((s) => s.fontZoom);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const voicevoxSpeakerId = useSettingsStore((s) => s.voicevoxSpeakerId);
+  const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
+  const voicevoxPitch = useSettingsStore((s) => s.voicevoxPitch);
+  const voicevoxVolume = useSettingsStore((s) => s.voicevoxVolume);
+  const voicevoxPrefetchWindow = useSettingsStore((s) => s.voicevoxPrefetchWindow);
+  const voicevoxCacheLimitMB = useSettingsStore((s) => s.voicevoxCacheLimitMB);
+  const scrollHostRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
   const pairRefs = useRef<Map<string, HTMLElement>>(new Map());
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -26,7 +42,12 @@ export function ReadingView() {
   const [showHelp, setShowHelp] = useState(false);
   const [inputMode, setInputMode] = useState(false);
   const [showBookmarkList, setShowBookmarkList] = useState(false);
+  const [isAutoReadOn, setIsAutoReadOn] = useState(false);
+  const [isAutoReadBusy, setIsAutoReadBusy] = useState(false);
   const lastSelectedPairId = useRef<string | null>(null);
+  const autoReadRequestedRef = useRef(false);
+  const PREFETCH_WINDOW = voicevoxPrefetchWindow;
+  const CACHE_MAX_MB = voicevoxCacheLimitMB;
 
   const { selection, clearSelection, hasJustSelected } = useTextSelection();
   const allBookmarks = useBookmarkStore((s) => s.bookmarks);
@@ -39,9 +60,166 @@ export function ReadingView() {
     ? allBookmarks.filter((b) => b.chapterId === currentChapter.id).length
     : 0;
 
+  const scrollPairToCenter = useCallback((pairId: string) => {
+    const container = scrollHostRef.current;
+    const element = pairRefs.current.get(pairId);
+    if (!container || !element) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const targetScrollTop =
+      container.scrollTop +
+      (elementRect.top - containerRect.top) -
+      containerRect.height / 2 +
+      elementRect.height / 2;
+
+    container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollHostRef.current = stageRef.current?.closest('.app-main-reader') as HTMLDivElement | null;
+  }, []);
+
+  const prefetchAhead = useCallback(
+    (fromPairId: string, count = PREFETCH_WINDOW) => {
+      if (!currentChapter) return;
+      const startIndex = currentChapter.pairs.findIndex((p) => p.id === fromPairId);
+      if (startIndex < 0) return;
+
+      const candidates = currentChapter.pairs.slice(startIndex + 1, startIndex + 1 + count);
+      for (const pair of candidates) {
+        void prefetchVoicevox(pair.japanese, voicevoxSpeakerId, {
+          speedScale: voicevoxSpeed,
+          pitchScale: voicevoxPitch,
+          volumeScale: voicevoxVolume,
+        }).catch((error) => {
+          console.warn('Prefetch failed:', error);
+        });
+      }
+    },
+    [currentChapter, voicevoxPitch, voicevoxSpeakerId, voicevoxSpeed, voicevoxVolume, PREFETCH_WINDOW]
+  );
+
+  const startPlayPair = useCallback(
+    async (pairId: string) => {
+      if (!currentChapter) return;
+      const pair = currentChapter.pairs.find((p) => p.id === pairId);
+      if (!pair) return;
+
+      setIsAutoReadBusy(true);
+      try {
+        prefetchAhead(pair.id);
+        await playVoicevox(pair.japanese, voicevoxSpeakerId, pair.id, {
+          speedScale: voicevoxSpeed,
+          pitchScale: voicevoxPitch,
+          volumeScale: voicevoxVolume,
+        });
+      } catch (error) {
+        console.error('Auto read failed:', error);
+        autoReadRequestedRef.current = false;
+        setIsAutoReadOn(false);
+      } finally {
+        setIsAutoReadBusy(false);
+      }
+    },
+    [currentChapter, prefetchAhead, voicevoxPitch, voicevoxSpeakerId, voicevoxSpeed, voicevoxVolume]
+  );
+
   const handleClosePanel = () => {
     setInputMode(false);
   };
+
+  useEffect(() => {
+    if (!currentChapter) {
+      autoReadRequestedRef.current = false;
+      setIsAutoReadOn(false);
+      setIsAutoReadBusy(false);
+      return;
+    }
+
+    const unsubscribe = subscribeVoicevoxEnded((endedPairId) => {
+      if (!autoReadRequestedRef.current) return;
+      const endedIndex = endedPairId
+        ? currentChapter.pairs.findIndex((p) => p.id === endedPairId)
+        : -1;
+
+      if (endedIndex < 0 || endedIndex >= currentChapter.pairs.length - 1) {
+        autoReadRequestedRef.current = false;
+        setIsAutoReadOn(false);
+        return;
+      }
+
+      const nextPair = currentChapter.pairs[endedIndex + 1];
+      handleSelectPair(nextPair.id);
+      scrollPairToCenter(nextPair.id);
+      void startPlayPair(nextPair.id);
+    });
+
+    return unsubscribe;
+  }, [currentChapter, scrollPairToCenter, startPlayPair]);
+
+  useEffect(() => {
+    setVoicevoxCacheLimit(CACHE_MAX_MB * 1024 * 1024);
+  }, [CACHE_MAX_MB]);
+
+  useEffect(() => {
+    if (!currentChapter) {
+      clearVoicevoxCache();
+      return;
+    }
+
+    const stats = getVoicevoxCacheStats();
+    const usageMB = (stats.totalBytes / (1024 * 1024)).toFixed(1);
+    const limitMB = (stats.maxBytes / (1024 * 1024)).toFixed(0);
+    console.debug(`[TTS cache] ${usageMB}MB / ${limitMB}MB, items=${stats.items}, evictions=${stats.evictions}`);
+  }, [currentChapter?.id]);
+
+  const toggleAutoRead = useCallback(() => {
+    const pairs = currentChapter?.pairs ?? [];
+
+    if (isAutoReadOn) {
+      autoReadRequestedRef.current = false;
+      setIsAutoReadOn(false);
+      stopVoicevoxPlayback();
+      return;
+    }
+
+    if (pairs.length === 0) return;
+
+    const fallbackId = lastSelectedPairId.current ?? pairs[0]?.id ?? null;
+    const startId = selectedPairId ?? fallbackId;
+    if (!startId) return;
+
+    autoReadRequestedRef.current = true;
+    setIsAutoReadOn(true);
+
+    if (selectedPairId !== startId) {
+      handleSelectPair(startId);
+    }
+    scrollPairToCenter(startId);
+    void prefetchVoicevox(
+      currentChapter?.pairs.find((p) => p.id === startId)?.japanese ?? '',
+      voicevoxSpeakerId,
+      {
+        speedScale: voicevoxSpeed,
+        pitchScale: voicevoxPitch,
+        volumeScale: voicevoxVolume,
+      }
+    ).catch(() => undefined);
+    prefetchAhead(startId);
+    void startPlayPair(startId);
+  }, [
+    currentChapter,
+    isAutoReadOn,
+    selectedPairId,
+    scrollPairToCenter,
+    startPlayPair,
+    voicevoxSpeakerId,
+    voicevoxSpeed,
+    voicevoxPitch,
+    voicevoxVolume,
+    prefetchAhead,
+  ]);
 
   const handleSelectPair = (pairId: string | null) => {
     if (pairId) {
@@ -116,6 +294,9 @@ export function ReadingView() {
         e.preventDefault();
         focusInput();
         giPending = false;
+      } else if (e.key === 'r') {
+        e.preventDefault();
+        toggleAutoRead();
       } else if (e.key === '?') {
         setShowHelp(true);
       }
@@ -123,24 +304,17 @@ export function ReadingView() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentChapter, selectedPairId, focusInput, blurInput, clearSelection]);
+  }, [currentChapter, selectedPairId, focusInput, blurInput, clearSelection, toggleAutoRead]);
 
   // 选中变化时滚动到可视区域
   useEffect(() => {
-    if (!selectedPairId || !containerRef.current) return;
-    const element = pairRefs.current.get(selectedPairId);
-    if (element && containerRef.current) {
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      const targetScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2);
-      container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-    }
-  }, [selectedPairId]);
+    if (!selectedPairId) return;
+    scrollPairToCenter(selectedPairId);
+  }, [selectedPairId, scrollPairToCenter]);
 
   // 书签跳转
   useEffect(() => {
-    if (!scrollToBookmarkId || !containerRef.current) return;
+    if (!scrollToBookmarkId || !scrollHostRef.current) return;
     
     const bookmark = getBookmarkById(scrollToBookmarkId);
     if (!bookmark) {
@@ -153,16 +327,11 @@ export function ReadingView() {
       handleSelectPair(bookmark.pairId);
       
       requestAnimationFrame(() => {
-        if (!containerRef.current) return;
-        const container = containerRef.current;
-        const containerRect = container.getBoundingClientRect();
-        const elementRect = element.getBoundingClientRect();
-        const targetScrollTop = container.scrollTop + (elementRect.top - containerRect.top) - (containerRect.height / 2) + (elementRect.height / 2);
-        container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+        scrollPairToCenter(bookmark.pairId);
       });
     }
     setScrollToBookmarkId(null);
-  }, [scrollToBookmarkId, getBookmarkById, setScrollToBookmarkId]);
+  }, [scrollToBookmarkId, getBookmarkById, setScrollToBookmarkId, scrollPairToCenter]);
 
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
@@ -184,7 +353,7 @@ export function ReadingView() {
     const savedIndex = getReadingProgress(currentChapter.id);
     if (savedIndex > 0) {
       requestAnimationFrame(() => {
-        const container = containerRef.current;
+        const container = scrollHostRef.current;
         if (container) {
           container.scrollTo({ top: savedIndex * 100, behavior: 'instant' });
         }
@@ -192,10 +361,17 @@ export function ReadingView() {
     }
   }, [currentChapter, getReadingProgress]);
 
+  useEffect(() => {
+    return () => {
+      autoReadRequestedRef.current = false;
+      stopVoicevoxPlayback();
+    };
+  }, []);
+
   // Simple scroll tracking
   useEffect(() => {
     if (!currentChapter) return;
-    const container = containerRef.current;
+    const container = scrollHostRef.current;
     if (!container) return;
 
     const handleScroll = () => {
@@ -229,22 +405,25 @@ export function ReadingView() {
       : 0;
 
   return (
-    <div className="flex h-full">
+    <div className={`reader-layout ${selectedPair ? 'reader-layout-with-panel' : ''}`}>
       {/* Reading area */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-y-auto pb-20"
+        ref={stageRef}
+        className="reader-stage"
         style={{ fontSize: `${17 * fontZoom}px` }}
         onClick={handleReadingAreaClick}
         tabIndex={-1}
       >
-        <div className="max-w-2xl mx-auto px-8 py-6">
+        <div className="reader-stage-inner">
           {currentChapter.pairs.map((pair) => (
             <SentencePairCard
               key={pair.id}
               pair={pair}
               isSelected={selectedPairId === pair.id}
-              onSelect={() => handleSelectPair(pair.id === selectedPairId ? null : pair.id)}
+              onSelect={() => {
+                if (hasJustSelected()) return;
+                handleSelectPair(pair.id === selectedPairId ? null : pair.id);
+              }}
               ref={(el) => {
                 if (el) {
                   pairRefs.current.set(pair.id, el);
@@ -270,6 +449,21 @@ export function ReadingView() {
         className="reading-progress"
         style={{ width: `${progressPct}%` }}
       />
+
+      {/* Read aloud button */}
+      <button
+        onClick={toggleAutoRead}
+        className="fixed bottom-24 right-6 p-3 rounded-full shadow-lg z-40 transition-all hover:scale-105"
+        style={{
+          backgroundColor: 'var(--bg-paper)',
+          border: '1px solid var(--border-light)',
+          color: isAutoReadOn ? 'var(--accent-primary)' : 'var(--ink-muted)',
+          opacity: isAutoReadBusy ? 0.75 : 1,
+        }}
+        title={isAutoReadOn ? '停止连续朗读' : '开启连续朗读'}
+      >
+        {isAutoReadOn ? <FiPause size={20} /> : <FiPlay size={20} />}
+      </button>
 
       {/* Bookmark button */}
       <button
