@@ -2,10 +2,12 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { FiMenu, FiSettings } from 'react-icons/fi';
+import { ThemeIndicator } from '../../theme/ThemeIndicator';
 
 export function TopBar() {
   const { changeFontZoom } = useSettingsStore();
-  const { toggleSidebar, openSettings } = useUIStore();
+  const { toggleSidebar, openSettings, currentView } = useUIStore();
+  const currentBook = useBookStore((s) => s.getCurrentBook());
   const currentChapter = useBookStore((s) => s.getCurrentChapter());
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
 
@@ -15,69 +17,61 @@ export function TopBar() {
       : 0;
 
   return (
-    <header className="flex-shrink-0" style={{ backgroundColor: 'var(--bg-paper)' }}>
-      <div
-        className="flex items-center justify-between px-6 py-4"
-        style={{ borderBottom: '1px solid var(--border-light)' }}
-      >
-        <div className="flex items-center gap-4">
+    <header className="app-header">
+      <div className="app-header-main">
+        <div className="app-brand">
           <button
             onClick={toggleSidebar}
-            className="p-1.5 rounded transition-colors opacity-50 hover:opacity-100"
-            style={{ color: 'var(--ink-secondary)' }}
+            className="app-icon-btn"
+            title="切换侧栏"
           >
-            <FiMenu size={18} />
+            <FiMenu size={16} />
           </button>
-          <h1
-            className="text-base font-medium"
-            style={{
-              fontFamily: 'var(--font-ui)',
-              color: 'var(--ink-primary)',
-            }}
-          >
-            {currentChapter?.title || '双語回訳'}
-          </h1>
+
+          <div>
+            <div className="app-logo">BAKU-YOMI</div>
+            <div className="app-context">
+              {currentView === 'bookshelf'
+                ? `LIBRARY / ${currentBook ? currentBook.title : 'EMPTY'}`
+                : `READER / ${currentChapter?.title || 'DOUBLE BACKTRANSLATION'}`}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {currentChapter && (
-            <span
-              className="text-sm"
-              style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-muted)' }}
-            >
+        <div className="app-header-tools">
+          <div className="app-shortcuts">THEME N / M / D / S / R / W</div>
+          <ThemeIndicator />
+          {currentView === 'reader' && currentChapter && (
+            <span className="app-progress-indicator">
               {progressPct}%
             </span>
           )}
           <button
             onClick={openSettings}
-            className="p-1.5 rounded transition-colors opacity-50 hover:opacity-100"
-            style={{ color: 'var(--ink-secondary)' }}
+            className="app-icon-btn"
+            title="打开设置"
           >
-            <FiSettings size={18} />
+            <FiSettings size={16} />
           </button>
         </div>
       </div>
 
-      {/* Font size controls */}
-      <div
-        className="flex items-center px-6 py-2"
-        style={{
-          borderBottom: '1px solid var(--border-light)',
-          backgroundColor: 'var(--bg-secondary)',
-        }}
-      >
-        <div className="flex items-center gap-3 ml-auto">
+      <div className="app-header-sub">
+        <div className="app-sub-label">
+          {currentView === 'bookshelf'
+            ? 'quiet library surface'
+            : currentBook?.title || 'active reading session'}
+        </div>
+        <div className="font-controls">
           <button
             onClick={() => changeFontZoom(-1)}
-            className="opacity-50 hover:opacity-100 transition-opacity text-sm font-medium"
-            style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-secondary)' }}
+            className="font-control-btn"
           >
             A-
           </button>
           <button
             onClick={() => changeFontZoom(1)}
-            className="opacity-50 hover:opacity-100 transition-opacity text-sm font-medium"
-            style={{ fontFamily: 'var(--font-ui)', color: 'var(--ink-secondary)' }}
+            className="font-control-btn"
           >
             A+
           </button>
