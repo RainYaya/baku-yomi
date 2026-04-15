@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - TTS_DEFAULT_PROVIDER=microsoft
+      - VOICEVOX_ENGINE_URL=http://voicevox:50021
+    depends_on:
+      voicevox:
+        condition: service_started
+        required: false
+
+  voicevox:
+    image: voicevox/voicevox_engine:latest
+    ports:
+      - "50021:50021"
+    profiles:
+      - voicevox
