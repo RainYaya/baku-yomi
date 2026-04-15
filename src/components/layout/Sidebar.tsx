@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
-import { FiBookOpen, FiTrash2, FiPlus, FiChevronRight } from 'react-icons/fi';
+import { FiBookOpen, FiTrash2, FiPlus, FiChevronRight, FiGrid } from 'react-icons/fi';
 import { useEpubParser } from '../../hooks/useEpubParser';
 
 export function Sidebar() {
@@ -11,12 +11,22 @@ export function Sidebar() {
   const readingProgress = useBookStore((s) => s.readingProgress);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
+  const getLastChapterIndexForBook = useBookStore((s) => s.getLastChapterIndexForBook);
   const removeBook = useBookStore((s) => s.removeBook);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const currentView = useUIStore((s) => s.currentView);
+  const setCurrentView = useUIStore((s) => s.setCurrentView);
   const { parseFile, parsing } = useEpubParser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentBook = books.find((b) => b.id === currentBookId) ?? null;
+
+  const openReader = (bookId: string, chapterIndex?: number) => {
+    setCurrentBook(bookId);
+    const target = chapterIndex ?? getLastChapterIndexForBook(bookId);
+    setCurrentChapter(target);
+    setCurrentView('reader');
+  };
 
   if (!sidebarOpen) return null;
 
@@ -28,90 +38,74 @@ export function Sidebar() {
 
   return (
     <aside
-      className="h-full overflow-y-auto flex-shrink-0"
-      style={{
-        width: '280px',
-        backgroundColor: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-light)',
-      }}
+      className="app-sidebar"
     >
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2
-            className="text-sm font-medium"
-            style={{
-              fontFamily: 'var(--font-ui)',
-              color: 'var(--ink-muted)',
-              letterSpacing: '0.1em',
-            }}
-          >
-            書架
-          </h2>
+      <div className="app-sidebar-inner">
+        <div className="app-sidebar-section">
+          <div className="app-sidebar-heading-row">
+            <h2 className="app-sidebar-heading">LIBRARY</h2>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".epub"
+              onChange={handleImport}
+              className="hidden"
+            />
+          </div>
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={parsing}
-            className="p-1.5 rounded transition-all hover:bg-opacity-80"
-            style={{
-              color: 'var(--accent-primary)',
-              opacity: parsing ? 0.4 : 1,
-            }}
+            className="app-mini-action"
             title="导入书籍"
           >
             {parsing ? (
-              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <div className="app-spinner" />
             ) : (
-              <FiPlus size={18} />
+              <>
+                <FiPlus size={14} />
+                IMPORT
+              </>
             )}
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".epub"
-            onChange={handleImport}
-            className="hidden"
-          />
         </div>
 
-        {/* Book list */}
-        {books.length === 0 ? (
-          <p
-            className="text-sm text-center py-8 opacity-40"
-            style={{ fontFamily: 'var(--font-ui)' }}
+        <div className="app-sidebar-section">
+          <button
+            className={`app-sidebar-link ${currentView === 'bookshelf' ? 'active' : ''}`}
+            onClick={() => setCurrentView('bookshelf')}
           >
+            <FiGrid size={14} />
+            <span>书架总览</span>
+          </button>
+        </div>
+
+        <div className="app-sidebar-section">
+          <div className="app-sidebar-label">BOOKS</div>
+        {books.length === 0 ? (
+          <p className="app-sidebar-empty">
             点击 + 导入书籍
           </p>
         ) : (
-          <ul className="space-y-1">
+            <ul className="app-sidebar-list">
             {books.map((book) => (
-              <li key={book.id} className="group flex items-center">
+                <li key={book.id} className="group flex items-center">
                 <button
-                  onClick={() => setCurrentBook(book.id)}
-                  className="flex-1 text-left px-3 py-2.5 rounded transition-all flex items-center gap-2"
-                  style={{
-                    backgroundColor:
-                      currentBookId === book.id ? 'var(--accent-subtle)' : 'transparent',
-                    color: currentBookId === book.id ? 'var(--accent-primary)' : 'var(--ink-secondary)',
-                  }}
+                  onClick={() => openReader(book.id)}
+                    className={`app-sidebar-link ${currentBookId === book.id ? 'active' : ''}`}
                 >
                   <FiBookOpen
                     size={16}
-                    className="flex-shrink-0"
-                    style={{
-                      opacity: currentBookId === book.id ? 1 : 0.5,
-                    }}
+                      className="flex-shrink-0"
                   />
-                  <span
-                    className="truncate flex-1 text-sm"
-                    style={{ fontFamily: 'var(--font-ui)' }}
-                  >
+                    <span className="truncate flex-1 text-sm">
                     {book.title}
                   </span>
                 </button>
                 <button
                   onClick={() => removeBook(book.id)}
-                  className="opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity p-2"
-                  style={{ color: 'var(--error-color)' }}
+                    className="app-inline-danger"
+                    title="删除"
                 >
                   <FiTrash2 size={14} />
                 </button>
@@ -119,27 +113,13 @@ export function Sidebar() {
             ))}
           </ul>
         )}
+        </div>
       </div>
 
-      {/* Chapter list */}
       {currentBook && currentBook.chapters.length > 0 && (
-        <>
-          <div
-            className="mx-5"
-            style={{ height: '1px', backgroundColor: 'var(--border-light)' }}
-          />
-          <div className="p-5">
-            <h2
-              className="text-xs font-medium mb-4"
-              style={{
-                fontFamily: 'var(--font-ui)',
-                color: 'var(--ink-muted)',
-                letterSpacing: '0.1em',
-              }}
-            >
-              章节
-            </h2>
-            <ul className="space-y-1">
+        <div className="app-sidebar-section app-sidebar-footer">
+          <div className="app-sidebar-label">CHAPTERS</div>
+          <ul className="app-sidebar-list">
               {currentBook.chapters.map((chapter, idx) => {
                 const progress = readingProgress[chapter.id] ?? 0;
                 const pct =
@@ -151,32 +131,18 @@ export function Sidebar() {
                 return (
                   <li key={chapter.id}>
                     <button
-                      onClick={() => setCurrentChapter(idx)}
-                      className="w-full text-left px-3 py-2.5 rounded transition-all flex items-center gap-2"
-                      style={{
-                        backgroundColor: isActive ? 'var(--accent-subtle)' : 'transparent',
-                        color: isActive ? 'var(--accent-primary)' : 'var(--ink-secondary)',
-                      }}
+                      onClick={() => openReader(currentBook.id, idx)}
+                      className={`app-sidebar-link ${isActive ? 'active' : ''}`}
                     >
                       <FiChevronRight
                         size={14}
                         className="flex-shrink-0"
-                        style={{ opacity: isActive ? 1 : 0.3 }}
                       />
-                      <span
-                        className="truncate flex-1 text-sm"
-                        style={{ fontFamily: 'var(--font-ui)' }}
-                      >
+                      <span className="truncate flex-1 text-sm">
                         {chapter.title}
                       </span>
                       {pct > 0 && (
-                        <span
-                          className="text-xs"
-                          style={{
-                            fontFamily: 'var(--font-ui)',
-                            color: 'var(--ink-muted)',
-                          }}
-                        >
+                        <span className="app-sidebar-progress">
                           {pct}%
                         </span>
                       )}
@@ -185,8 +151,7 @@ export function Sidebar() {
                 );
               })}
             </ul>
-          </div>
-        </>
+        </div>
       )}
     </aside>
   );

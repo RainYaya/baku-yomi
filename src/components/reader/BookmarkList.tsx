@@ -55,7 +55,7 @@ export function BookmarkList({ onClose }: Props) {
               <p
                 className="text-sm truncate"
                 style={{
-                  fontFamily: 'var(--font-reading)',
+                  fontFamily: 'var(--font-body)',
                   color: 'var(--ink-primary)',
                   borderLeft: color ? `2px solid ${color.border}` : 'none',
                   paddingLeft: '0.5rem',

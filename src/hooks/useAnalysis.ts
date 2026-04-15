@@ -5,7 +5,7 @@ import { analyzeTranslation } from '../lib/ai/client';
 
 export function useAnalysis() {
   const { setAnalysis, setAnalyzing, analyzingPairId } = usePracticeStore();
-  const aiProvider = useSettingsStore((s) => s.aiProvider);
+  const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
 
   const analyze = useCallback(
     async (

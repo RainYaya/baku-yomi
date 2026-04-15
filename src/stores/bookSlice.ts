@@ -8,13 +8,19 @@ interface BookState {
   currentChapterIndex: number;
   // chapterId -> pairIndex (last visible pair)
   readingProgress: Record<string, number>;
+  // chapterId -> timestamp
+  lastReadAt: Record<string, number>;
+  // bookId -> last chapter index
+  lastChapterIndexByBook: Record<string, number>;
   // 用于书签跳转
   scrollToPairId: string | null;
 
   addBook: (book: Book) => void;
   removeBook: (id: string) => void;
+  renameBook: (id: string, title: string) => void;
   setCurrentBook: (id: string) => void;
   setCurrentChapter: (index: number) => void;
+  getLastChapterIndexForBook: (bookId: string) => number;
   getCurrentBook: () => Book | null;
   getCurrentChapter: () => Chapter | null;
   updatePairChinese: (pairId: string, chinese: string) => void;
@@ -30,6 +36,8 @@ export const useBookStore = create<BookState>()(
       currentBookId: null,
       currentChapterIndex: 0,
       readingProgress: {},
+      lastReadAt: {},
+      lastChapterIndexByBook: {},
       scrollToPairId: null,
 
       addBook: (book) =>
@@ -46,11 +54,34 @@ export const useBookStore = create<BookState>()(
             state.currentBookId === id ? null : state.currentBookId,
         })),
 
+      renameBook: (id, title) =>
+        set((state) => ({
+          books: state.books.map((b) => (b.id === id ? { ...b, title: title.trim() || b.title } : b)),
+        })),
+
       setCurrentBook: (id) =>
-        set({ currentBookId: id, currentChapterIndex: 0 }),
+        set((state) => ({
+          currentBookId: id,
+          currentChapterIndex: Math.max(0, state.lastChapterIndexByBook[id] ?? 0),
+        })),
 
       setCurrentChapter: (index) =>
-        set({ currentChapterIndex: index }),
+        set((state) => {
+          const currentBook = state.books.find((b) => b.id === state.currentBookId);
+          if (!currentBook) {
+            return { currentChapterIndex: index };
+          }
+          return {
+            currentChapterIndex: index,
+            lastChapterIndexByBook: {
+              ...state.lastChapterIndexByBook,
+              [currentBook.id]: index,
+            },
+          };
+        }),
+
+      getLastChapterIndexForBook: (bookId) =>
+        Math.max(0, get().lastChapterIndexByBook[bookId] ?? 0),
 
       getCurrentBook: () => {
         const { books, currentBookId } = get();
@@ -81,6 +112,10 @@ export const useBookStore = create<BookState>()(
           readingProgress: {
             ...state.readingProgress,
             [chapterId]: pairIndex,
+          },
+          lastReadAt: {
+            ...state.lastReadAt,
+            [chapterId]: Date.now(),
           },
         })),
 

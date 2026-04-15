@@ -34,10 +34,15 @@ export function EpubUploader() {
   );
 
   return (
-    <div
-      className="flex flex-col items-center justify-center h-full p-8"
-      style={{ fontFamily: 'var(--font-ui)' }}
-    >
+    <div className="uploader-page">
+      <div className="uploader-copy">
+        <div className="uploader-kicker">IMPORT</div>
+        <h2 className="uploader-title">把第一本双语 EPUB 放进书架。</h2>
+        <p className="uploader-text">
+          这是一个偏工具站、偏安静的阅读界面。导入之后，你会得到书架、章节目录、回译练习和朗读工作区。
+        </p>
+      </div>
+
       <div
         onDrop={handleDrop}
         onDragOver={(e) => {
@@ -46,13 +51,9 @@ export function EpubUploader() {
         }}
         onDragLeave={() => setDragOver(false)}
         onClick={() => document.getElementById('epub-input')?.click()}
-        className="w-full max-w-md transition-all duration-200 cursor-pointer"
+        className="uploader-dropzone"
         style={{
-          border: `2px dashed ${dragOver ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-          borderRadius: '8px',
-          padding: '3rem 2rem',
-          textAlign: 'center',
-          backgroundColor: dragOver ? 'var(--accent-subtle)' : 'transparent',
+          borderColor: dragOver ? 'var(--accent)' : 'var(--line)',
         }}
       >
         <FiUpload
@@ -86,10 +87,7 @@ export function EpubUploader() {
       </div>
 
       {parsing && (
-        <div
-          className="mt-8 flex items-center gap-3"
-          style={{ color: 'var(--accent-primary)' }}
-        >
+        <div className="uploader-status">
           <div
             className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"
           />
@@ -100,29 +98,13 @@ export function EpubUploader() {
       )}
 
       {error && (
-        <div
-          className="mt-6 px-5 py-4 rounded"
-          style={{
-            backgroundColor: 'rgba(184, 74, 74, 0.08)',
-            border: '1px solid rgba(184, 74, 74, 0.2)',
-            color: 'var(--error-color)',
-            fontSize: '0.9rem',
-            maxWidth: '400px',
-          }}
-        >
+        <div className="uploader-error">
           {error}
         </div>
       )}
 
-      {/* Decorative element */}
-      <div className="mt-12 text-center">
-        <p
-          className="text-xs opacity-30"
-          style={{
-            fontFamily: 'var(--font-body)',
-            letterSpacing: '0.2em',
-          }}
-        >
+      <div className="uploader-footer">
+        <p className="text-xs opacity-30" style={{ fontFamily: 'var(--font-body)', letterSpacing: '0.2em' }}>
           双語回訳 — 日本語学習ツール
         </p>
       </div>

@@ -2,6 +2,8 @@ export interface Book {
   id: string;
   title: string;
   author: string;
+  description?: string;
+  publisher?: string;
   chapters: Chapter[];
   coverUrl?: string;
   importedAt: number;

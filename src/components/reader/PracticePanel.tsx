@@ -25,7 +25,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
   const setHint = usePracticeStore((s) => s.setHint);
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
   const { analyze, analyzingPairId } = useAnalysis();
-  const aiProvider = useSettingsStore((s) => s.aiProvider);
+  const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
 
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -106,11 +106,10 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
 
   return (
     <aside
-      className="h-full flex flex-col animate-fade-in"
+      className="reader-practice-panel h-full flex flex-col animate-fade-in"
       style={{
         width: '24rem',
         borderLeft: '1px solid var(--border-light)',
-        backgroundColor: 'var(--bg-paper)',
       }}
     >
       {/* Header */}
@@ -219,9 +218,10 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-all"
                 style={{
                   fontFamily: 'var(--font-ui)',
-                  backgroundColor: 'rgba(124, 106, 173, 0.1)',
+                  backgroundColor: 'var(--accent-subtle)',
                   color: 'var(--accent-secondary)',
                   opacity: loadingOptimize ? 0.5 : 1,
+                  border: '1px solid var(--border-light)',
                 }}
               >
                 {loadingOptimize ? (
@@ -239,9 +239,10 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-all"
                 style={{
                   fontFamily: 'var(--font-ui)',
-                  backgroundColor: 'rgba(44, 74, 110, 0.08)',
+                  backgroundColor: 'var(--accent-subtle)',
                   color: 'var(--accent-primary)',
                   opacity: loadingHint ? 0.5 : 1,
+                  border: '1px solid var(--border-light)',
                 }}
               >
                 {loadingHint ? (
