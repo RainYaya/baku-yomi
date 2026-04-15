@@ -1,3 +1,10 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
 # Logs
 logs
 *.log
@@ -5,28 +12,41 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Environment variables (keep .env.example)
+.env
+.env.local
+.env.production
 *.local
 
-# Editor directories and files
+# Editor / IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
+# OS
+.DS_Store
+Thumbs.db
+
 # EPUB files and extracted resources
 *.epub
 /images/
-.alma-snapshots
 
-# vibe-learn session logs
+# Test / debug artifacts
+*.wav
+*.mp3
+query.json
+text.txt
+
+# Docker
+docker-compose.override.yml
+
+# AI assistant session data
+.alma-snapshots
 .vibe-learn/
+.claude/
