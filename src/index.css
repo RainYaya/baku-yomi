@@ -612,7 +612,8 @@ button {
   top: 0;
   align-self: start;
   height: calc(100svh - 1px);
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .bookshelf-page {

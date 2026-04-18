@@ -136,7 +136,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
         {/* Japanese original */}
         <div>
           <span className="tag mb-2 block">原文</span>
@@ -345,10 +345,17 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
           </button>
         )}
 
-        {/* Divider */}
-        <div style={{ height: '1px', backgroundColor: 'var(--border-light)' }} />
+        {/* Analysis result */}
+        {analysis && <AnalysisPanel result={analysis} />}
+      </div>
 
-        {/* Translation input */}
+      <div
+        className="shrink-0 px-5 py-4 space-y-3"
+        style={{
+          borderTop: '1px solid var(--border-light)',
+          backgroundColor: 'var(--bg-paper)',
+        }}
+      >
         <div>
           <span className="tag mb-2 block">你的回译</span>
           <textarea
@@ -366,8 +373,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
           />
         </div>
 
-        {/* Submit */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-3">
           <span className="text-xs" style={{ color: 'var(--error-color)' }}>
             {error}
           </span>
@@ -390,9 +396,6 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
             )}
           </button>
         </div>
-
-        {/* Analysis result */}
-        {analysis && <AnalysisPanel result={analysis} />}
       </div>
     </aside>
   );
