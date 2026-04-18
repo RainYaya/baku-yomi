@@ -558,8 +558,7 @@ button {
 }
 
 .app-main-reader {
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   display: block;
 }
 
@@ -579,9 +578,13 @@ button {
 
 .reader-stage {
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 5rem;
   scroll-padding-block: 42vh;
+  overscroll-behavior: contain;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -610,8 +613,7 @@ button {
 }
 
 .reader-practice-panel {
-  position: sticky;
-  top: 0;
+  position: relative;
   align-self: stretch;
   height: 100%;
   max-height: 100%;
@@ -619,7 +621,7 @@ button {
   overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  background: var(--bg-paper);
+  background: transparent;
 }
 
 .reader-practice-panel-content {
@@ -632,7 +634,8 @@ button {
   position: relative;
   z-index: 1;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -10px 30px color-mix(in srgb, var(--bg-paper) 78%, transparent);
+  background: transparent;
+  box-shadow: 0 -10px 30px color-mix(in srgb, var(--bg) 22%, transparent);
 }
 
 .bookshelf-page {
@@ -1342,9 +1345,15 @@ select:focus {
     display: block;
   }
 
+  .app-main-reader {
+    overflow: visible;
+  }
+
   .reader-stage {
     padding-bottom: 2rem;
+    height: auto;
     min-height: 0;
+    overflow: visible;
   }
 
   .reader-stage-inner {

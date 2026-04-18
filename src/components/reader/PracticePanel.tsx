@@ -361,7 +361,6 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
         className="reader-practice-panel-composer px-5 py-4 space-y-3"
         style={{
           borderTop: '1px solid var(--border-light)',
-          backgroundColor: 'var(--bg-paper)',
         }}
       >
         <div>

@@ -77,7 +77,7 @@ export function ReadingView() {
   }, []);
 
   useEffect(() => {
-    scrollHostRef.current = stageRef.current?.closest('.app-main-reader') as HTMLDivElement | null;
+    scrollHostRef.current = stageRef.current;
   }, []);
 
   const prefetchAhead = useCallback(
