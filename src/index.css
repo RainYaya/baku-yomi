@@ -902,6 +902,183 @@ button {
   will-change: opacity;
 }
 
+.welcome-guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 3vw, 32px);
+  background:
+    radial-gradient(circle at 50% 16%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 38%),
+    color-mix(in srgb, var(--bg) 74%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.welcome-guide-dialog {
+  width: min(920px, 100%);
+  max-height: min(92svh, 920px);
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--text) 12%);
+  border-radius: 18px;
+  padding: clamp(20px, 3vw, 30px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 86%, white 14%) 0%, color-mix(in srgb, var(--bg) 93%, transparent) 100%);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.welcome-guide-header,
+.welcome-guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.welcome-guide-header {
+  margin-bottom: 28px;
+}
+
+.welcome-guide-kicker,
+.welcome-guide-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.welcome-guide-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.welcome-guide-close:hover {
+  border-color: var(--mid);
+  color: var(--ink-primary);
+}
+
+.welcome-guide-hero {
+  max-width: 42rem;
+  margin-bottom: 28px;
+}
+
+.welcome-guide-brand {
+  margin: 0 0 10px;
+  font-size: clamp(14px, 2vw, 18px);
+  letter-spacing: 0.3em;
+  color: var(--accent-primary);
+}
+
+.welcome-guide-title {
+  margin: 0;
+  font-size: clamp(2rem, 3.8vw, 3.4rem);
+  line-height: 0.98;
+  max-width: 12ch;
+}
+
+.welcome-guide-copy {
+  margin: 16px 0 0;
+  max-width: 34rem;
+  font-size: 0.98rem;
+  color: var(--ink-secondary);
+}
+
+.welcome-guide-copy-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.welcome-guide-card {
+  min-height: 188px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+}
+
+.welcome-guide-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.welcome-guide-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.welcome-guide-card-title {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
+.welcome-guide-card-body,
+.welcome-guide-meta,
+.welcome-guide-footnote {
+  margin: 0;
+  color: var(--ink-secondary);
+}
+
+.welcome-guide-card-body {
+  font-size: 0.95rem;
+}
+
+.welcome-guide-list {
+  margin: 12px 0 0;
+  padding-left: 1.1rem;
+  color: var(--ink-secondary);
+  display: grid;
+  gap: 8px;
+}
+
+.welcome-guide-list li::marker {
+  color: var(--accent-primary);
+}
+
+.welcome-guide-meta {
+  margin-top: 14px;
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+}
+
+.welcome-guide-footer {
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
+
+.welcome-guide-footnote {
+  font-size: 0.86rem;
+}
+
+.welcome-guide-action {
+  flex-shrink: 0;
+}
+
 .settings-drawer {
   width: min(460px, 92vw);
   height: 100%;
@@ -1377,5 +1554,29 @@ select:focus {
   .bookshelf-page,
   .uploader-page {
     padding: 24px 16px 48px;
+  }
+
+  .welcome-guide-dialog {
+    padding: 18px;
+    max-height: min(90svh, 100%);
+  }
+
+  .welcome-guide-title {
+    max-width: none;
+    font-size: clamp(1.65rem, 9vw, 2.4rem);
+  }
+
+  .welcome-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-guide-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .welcome-guide-action {
+    width: 100%;
+    justify-content: center;
   }
 }
