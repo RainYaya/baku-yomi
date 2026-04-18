@@ -403,6 +403,7 @@ export function ReadingView() {
     currentChapter.pairs.length > 0
       ? Math.round((savedProgress / currentChapter.pairs.length) * 100)
       : 0;
+  const floatingButtonRight = selectedPair ? 'calc(24rem + 1.5rem)' : '1.5rem';
 
   return (
     <div className={`reader-layout ${selectedPair ? 'reader-layout-with-panel' : ''}`}>
@@ -455,6 +456,7 @@ export function ReadingView() {
         onClick={toggleAutoRead}
         className="fixed bottom-24 right-6 p-3 rounded-full shadow-lg z-40 transition-all hover:scale-105"
         style={{
+          right: floatingButtonRight,
           backgroundColor: 'var(--bg-paper)',
           border: '1px solid var(--border-light)',
           color: isAutoReadOn ? 'var(--accent-primary)' : 'var(--ink-muted)',
@@ -470,6 +472,7 @@ export function ReadingView() {
         onClick={() => setShowBookmarkList((v) => !v)}
         className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg z-40 transition-all hover:scale-105"
         style={{
+          right: floatingButtonRight,
           backgroundColor: 'var(--bg-paper)',
           border: '1px solid var(--border-light)',
           color: showBookmarkList ? 'var(--accent-primary)' : 'var(--ink-muted)',
@@ -498,6 +501,7 @@ export function ReadingView() {
         <div
           className="fixed bottom-20 right-6 w-72 max-h-80 rounded-lg shadow-xl z-40 animate-slide-up"
           style={{
+            right: floatingButtonRight,
             backgroundColor: 'var(--bg-paper)',
             border: '1px solid var(--border-light)',
           }}

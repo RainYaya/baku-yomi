@@ -569,10 +569,12 @@ button {
   align-items: start;
   width: 100%;
   min-height: 100%;
+  height: 100%;
 }
 
 .reader-layout-with-panel {
   grid-template-columns: minmax(0, 1fr) 24rem;
+  align-items: stretch;
 }
 
 .reader-stage {
@@ -610,10 +612,27 @@ button {
 .reader-practice-panel {
   position: sticky;
   top: 0;
-  align-self: start;
-  height: calc(100svh - 1px);
+  align-self: stretch;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--bg-paper);
+}
+
+.reader-practice-panel-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.reader-practice-panel-composer {
+  position: relative;
+  z-index: 1;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 30px color-mix(in srgb, var(--bg-paper) 78%, transparent);
 }
 
 .bookshelf-page {
@@ -1337,8 +1356,13 @@ select:focus {
     position: static;
     width: 100% !important;
     height: auto;
+    display: block;
     border-left: none !important;
     border-top: 1px solid var(--border-light);
+  }
+
+  .reader-practice-panel-content {
+    overflow: visible;
   }
 
   .bookshelf-page,

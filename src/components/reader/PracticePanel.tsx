@@ -16,6 +16,7 @@ interface Props {
 }
 
 export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
+  const hasChinese = pair ? pair.chinese.trim().length > 0 : false;
   const translation = usePracticeStore((s) => pair ? s.translations[pair.id] ?? '' : '');
   const analysis = usePracticeStore((s) => pair ? s.analyses[pair.id] : null);
   const note = usePracticeStore((s) => pair ? s.notes[pair.id] ?? '' : '');
@@ -40,7 +41,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
   const isAnalyzing = analyzingPairId === pair?.id;
 
   useEffect(() => {
-    if (pair) {
+    if (pair?.id) {
       setEditing(false);
       setShowNote(false);
       setError(null);
@@ -51,10 +52,10 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
 
   // inputMode 变化时控制 focus
   useEffect(() => {
-    if (inputMode && pair && inputRef.current) {
+    if (inputMode && pair?.id && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [inputMode, pair?.id]);
+  }, [inputMode, inputRef, pair?.id]);
 
   const handleSubmit = async () => {
     if (!pair || !translation.trim()) return;
@@ -106,7 +107,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
 
   return (
     <aside
-      className="reader-practice-panel h-full flex flex-col animate-fade-in"
+      className="reader-practice-panel animate-fade-in"
       style={{
         width: '24rem',
         borderLeft: '1px solid var(--border-light)',
@@ -136,7 +137,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+      <div className="reader-practice-panel-content p-5 space-y-5">
         {/* Japanese original */}
         <div>
           <span className="tag mb-2 block">原文</span>
@@ -201,8 +202,15 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
               </div>
             </div>
           ) : (
-            <p className="text-reading opacity-70" style={{ fontSize: '0.9em' }}>
-              {pair.chinese}
+            <p
+              className="text-reading"
+              style={{
+                fontSize: '0.9em',
+                opacity: hasChinese ? 0.7 : 0.48,
+                fontStyle: hasChinese ? 'normal' : 'italic',
+              }}
+            >
+              {hasChinese ? pair.chinese : '暂无译文'}
             </p>
           )}
         </div>
@@ -350,7 +358,7 @@ export function PracticePanel({ pair, onClose, inputRef, inputMode }: Props) {
       </div>
 
       <div
-        className="shrink-0 px-5 py-4 space-y-3"
+        className="reader-practice-panel-composer px-5 py-4 space-y-3"
         style={{
           borderTop: '1px solid var(--border-light)',
           backgroundColor: 'var(--bg-paper)',

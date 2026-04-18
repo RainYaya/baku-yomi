@@ -58,8 +58,7 @@ function JapaneseText({
     pair.japanese,
     pair.japaneseHtml,
     showFurigana,
-    bookmarks.length,
-    bookmarks.map((b) => b.id + b.colorId).join(','),
+    bookmarks,
   ]);
 
   return (
@@ -73,6 +72,7 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
   { pair, isSelected, onSelect },
   ref
 ) {
+  const hasChinese = pair.chinese.trim().length > 0;
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
@@ -193,16 +193,18 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
       <div className="reader-sentence-text">
         <JapaneseText pair={pair} className="text-reading mb-2" style={{ lineHeight: '1.9' }} />
 
-        <div
-          style={{
-            paddingLeft: '1.25rem',
-            borderLeft: '2px solid var(--accent-subtle)',
-          }}
-        >
-          <p className="text-reading" style={{ fontSize: '0.9em', opacity: 0.65 }}>
-            {pair.chinese}
-          </p>
-        </div>
+        {hasChinese && (
+          <div
+            style={{
+              paddingLeft: '1.25rem',
+              borderLeft: '2px solid var(--accent-subtle)',
+            }}
+          >
+            <p className="text-reading" style={{ fontSize: '0.9em', opacity: 0.65 }}>
+              {pair.chinese}
+            </p>
+          </div>
+        )}
       </div>
     </article>
   );

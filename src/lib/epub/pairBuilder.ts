@@ -4,35 +4,54 @@ import type { ExtractedSentence } from './sentenceSplitter';
 
 /**
  * Build sentence pairs from extracted text lines.
- * Expects alternating Japanese and Chinese sentences.
- * Pairs are formed from adjacent JA+ZH sequences.
+ * Preserves adjacent JA+ZH / ZH+JA bilingual pairs when present.
+ * If no explicit bilingual structure is found, fall back to treating each line
+ * as a Japanese source sentence so monolingual novels still import cleanly.
  */
 export function buildPairs(
   sentences: ExtractedSentence[],
   chapterIndex: number
 ): SentencePair[] {
-  const pairs: SentencePair[] = [];
-
   const tagged = sentences.map((s) => ({
     ...s,
     lang: detectLanguage(s.text),
   }));
 
+  const hasExplicitBilingualPairs = tagged.some((sentence, index) => {
+    const next = tagged[index + 1];
+    if (!next) return false;
+    return (
+      (sentence.lang === 'ja' && next.lang === 'zh') ||
+      (sentence.lang === 'zh' && next.lang === 'ja')
+    );
+  });
+
+  if (!hasExplicitBilingualPairs) {
+    return tagged.map((sentence, pairIndex) => ({
+      id: `ch${chapterIndex}-p${pairIndex}`,
+      japanese: sentence.text,
+      japaneseHtml: sentence.html,
+      chinese: '',
+      chapterIndex,
+      pairIndex,
+    }));
+  }
+
+  const pairs: SentencePair[] = [];
   let i = 0;
   let pairIndex = 0;
 
   while (i < tagged.length) {
+    const current = tagged[i];
+    const next = tagged[i + 1];
+
     // Look for JA followed by ZH
-    if (
-      tagged[i].lang === 'ja' &&
-      i + 1 < tagged.length &&
-      tagged[i + 1].lang === 'zh'
-    ) {
+    if (current.lang === 'ja' && next?.lang === 'zh') {
       pairs.push({
         id: `ch${chapterIndex}-p${pairIndex}`,
-        japanese: tagged[i].text,
-        japaneseHtml: tagged[i].html,
-        chinese: tagged[i + 1].text,
+        japanese: current.text,
+        japaneseHtml: current.html,
+        chinese: next.text,
         chapterIndex,
         pairIndex,
       });
@@ -42,16 +61,12 @@ export function buildPairs(
     }
 
     // Look for ZH followed by JA (reverse order)
-    if (
-      tagged[i].lang === 'zh' &&
-      i + 1 < tagged.length &&
-      tagged[i + 1].lang === 'ja'
-    ) {
+    if (current.lang === 'zh' && next?.lang === 'ja') {
       pairs.push({
         id: `ch${chapterIndex}-p${pairIndex}`,
-        japanese: tagged[i + 1].text,
-        japaneseHtml: tagged[i + 1].html,
-        chinese: tagged[i].text,
+        japanese: next.text,
+        japaneseHtml: next.html,
+        chinese: current.text,
         chapterIndex,
         pairIndex,
       });
@@ -60,7 +75,20 @@ export function buildPairs(
       continue;
     }
 
-    // Skip unmatched sentences
+    // Keep unmatched Japanese lines so partially bilingual / monolingual
+    // chapters still remain readable and can be backfilled later.
+    if (current.lang === 'ja') {
+      pairs.push({
+        id: `ch${chapterIndex}-p${pairIndex}`,
+        japanese: current.text,
+        japaneseHtml: current.html,
+        chinese: '',
+        chapterIndex,
+        pairIndex,
+      });
+      pairIndex++;
+    }
+
     i++;
   }
 
