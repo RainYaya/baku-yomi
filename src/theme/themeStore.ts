@@ -41,7 +41,7 @@ export interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      mode: 'night',
+      mode: 'snow',
       setMode: (mode) => set({ mode }),
     }),
     { name: 'baku-yomi-theme' }
