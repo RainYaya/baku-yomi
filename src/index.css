@@ -583,7 +583,6 @@ button {
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 5rem;
-  scroll-padding-block: 42vh;
   overscroll-behavior: contain;
   user-select: text;
   -webkit-user-select: text;
@@ -597,7 +596,6 @@ button {
 
 .reader-sentence-card {
   cursor: default;
-  scroll-margin-block: 42vh;
 }
 
 .reader-sentence-text {

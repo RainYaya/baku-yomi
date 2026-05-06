@@ -46,6 +46,7 @@ export function ReadingView() {
   const [isAutoReadBusy, setIsAutoReadBusy] = useState(false);
   const lastSelectedPairId = useRef<string | null>(null);
   const autoReadRequestedRef = useRef(false);
+  const skipNextScrollRef = useRef(false);
   const PREFETCH_WINDOW = voicevoxPrefetchWindow;
   const CACHE_MAX_MB = voicevoxCacheLimitMB;
 
@@ -306,9 +307,13 @@ export function ReadingView() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentChapter, selectedPairId, focusInput, blurInput, clearSelection, toggleAutoRead]);
 
-  // 选中变化时滚动到可视区域
+  // 选中变化时滚动到可视区域（鼠标点击不滚动，避免干扰文本选择）
   useEffect(() => {
     if (!selectedPairId) return;
+    if (skipNextScrollRef.current) {
+      skipNextScrollRef.current = false;
+      return;
+    }
     scrollPairToCenter(selectedPairId);
   }, [selectedPairId, scrollPairToCenter]);
 
@@ -423,6 +428,7 @@ export function ReadingView() {
               isSelected={selectedPairId === pair.id}
               onSelect={() => {
                 if (hasJustSelected()) return;
+                skipNextScrollRef.current = true;
                 handleSelectPair(pair.id === selectedPairId ? null : pair.id);
               }}
               ref={(el) => {
