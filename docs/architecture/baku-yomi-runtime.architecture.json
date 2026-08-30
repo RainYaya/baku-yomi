@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "baku-yomi 実行時アーキテクチャ",
+    "output": "baku-yomi-runtime.html",
+    "quality_profile": "showcase",
+    "viewBox": [1160, 540],
+    "views": [
+      {
+        "id": "main-path",
+        "label": "逆訳メインパス",
+        "focus": ["reader", "gateway", "analyze", "provider", "aiproviders"],
+        "note": "読書ビューから逆訳を送信 → ゲートウェイ → AI 採点 → プロバイダ SDK → AI ベンダー API。採点結果は同一経路で戻る。"
+      }
+    ]
+  },
+  "components": [
+    { "id": "keyvault", "type": "security", "label": "BYOK キーストア", "sublabel": "localStorage（端末のみ）", "tag": "端末から出ない", "pos": [40, 30], "size": [132, 56] },
+    { "id": "client", "type": "frontend", "label": "Web クライアント", "sublabel": "React 19 + Zustand", "pos": [40, 104], "size": [132, 56] },
+    { "id": "importer", "type": "frontend", "label": "EPUB 取り込み", "sublabel": "@lingo-reader/epub-parser", "pos": [40, 170], "size": [132, 56] },
+    { "id": "reader", "type": "frontend", "label": "バイリンガル読書", "sublabel": "対訳＋逆訳パネル", "pos": [40, 258], "size": [132, 60] },
+
+    { "id": "gateway", "type": "security", "label": "API ゲートウェイ", "sublabel": "Hono + CORS", "tag": "信頼境界", "pos": [300, 252], "size": [132, 60] },
+    { "id": "analyze", "type": "backend", "label": "AI 採点サービス", "sublabel": "/api/analyze", "tag": "制限 30回/分", "pos": [520, 252], "size": [132, 60] },
+    { "id": "provider", "type": "backend", "label": "AI プロバイダ SDK", "sublabel": "Vercel AI SDK", "pos": [740, 252], "size": [132, 60] },
+    { "id": "tts", "type": "backend", "label": "TTS サービス", "sublabel": "/api/tts", "tag": "WAV キャッシュ", "pos": [520, 372], "size": [132, 60] },
+
+    { "id": "aiproviders", "type": "external", "label": "AI ベンダー API", "sublabel": "OpenAI / Anthropic / Google", "pos": [950, 252], "size": [150, 60] },
+    { "id": "edgets", "type": "external", "label": "Microsoft Edge TTS", "sublabel": "無料・設定不要", "pos": [950, 352], "size": [150, 60] },
+    { "id": "voicevox", "type": "external", "label": "VOICEVOX エンジン", "sublabel": "任意（Docker）", "tag": "任意", "pos": [950, 452], "size": [150, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "ブラウザ（ユーザー端末）", "wraps": ["keyvault", "client", "importer", "reader"] },
+    { "kind": "region", "label": "baku-yomi サーバー（Hono, Node.js）", "wraps": ["gateway", "analyze", "provider", "tts"] },
+    { "kind": "region", "label": "外部 / サードパーティ", "wraps": ["aiproviders", "edgets", "voicevox"] }
+  ],
+  "connections": [
+    { "id": "byok-key", "from": "keyvault", "to": "gateway", "label": "API キー (BYOK)", "variant": "security", "fromSide": "right", "toSide": "top", "labelAt": [250, 150] },
+    { "id": "epub-pairs", "from": "importer", "to": "reader", "label": "文ペアを解析", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [106, 242] },
+    { "id": "read-gateway", "from": "reader", "to": "gateway", "label": "HTTPS /api", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [236, 285] },
+    { "id": "gw-analyze", "from": "gateway", "to": "analyze", "label": "ルーティング /analyze", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [476, 326] },
+    { "id": "gw-tts", "from": "gateway", "to": "tts", "label": "ルーティング /tts", "fromSide": "bottom", "toSide": "top" },
+    { "id": "analyze-provider", "from": "analyze", "to": "provider", "label": "generateText", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [696, 268] },
+    { "id": "provider-ai", "from": "provider", "to": "aiproviders", "label": "チャット補完", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelAt": [911, 340] },
+    { "id": "tts-edge", "from": "tts", "to": "edgets", "label": "音声合成", "fromSide": "right", "toSide": "left" },
+    { "id": "tts-voicevox", "from": "tts", "to": "voicevox", "label": "音声合成", "variant": "dashed", "fromSide": "right", "toSide": "left", "labelAt": [801, 460] }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "ブラウザの信頼境界", "items": [
+      "BYOK キーはブラウザの localStorage のみに保存し、自サーバーへは一切送信しない",
+      "/api/analyze 呼び出し時、キーはリクエスト本体に乗せてゲートウェイへ渡り、サーバー側で選択した AI ベンダーへ転送される",
+      "AI ベンダーのキーは常にクライアント側に留まる"
+    ] },
+    { "dot": "cyan", "title": "サーバー側の境界", "items": [
+      "Hono ゲートウェイが単一入口。本番は CORS を CORS_ORIGIN に固定、未設定なら同一オリジンのみ",
+      "/api/analyze は IP ごと毎分 30 回にレート制限",
+      "TTS 合成結果はサーバー側で WAV キャッシュ（既定 120MB）"
+    ] },
+    { "dot": "emerald", "title": "外部依存", "items": [
+      "AI ベンダー API：OpenAI / Anthropic / Google を Vercel AI SDK 経由でサーバー側から呼ぶ",
+      "Microsoft Edge TTS：無料・設定不要、既定の TTS",
+      "VOICEVOX エンジン：任意の日本語音声エンジン、Docker で別起動"
+    ] }
+  ]
+}
