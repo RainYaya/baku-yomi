@@ -6,6 +6,7 @@ import { createDebouncedStorage } from '../lib/debouncedStorage';
 
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
+export type ReaderColumns = 1 | 2;
 
 export interface AIProviderProfile extends AIProviderConfig {
   id: string;
@@ -21,6 +22,7 @@ interface SettingsState {
   showFurigana: boolean;
   keywordMode: boolean;
   layoutMode: LayoutMode;
+  readerColumns: ReaderColumns;
   fontZoom: number;
   voicevoxSpeakerId: number;
   voicevoxSpeed: number;
@@ -39,6 +41,7 @@ interface SettingsState {
   toggleFurigana: () => void;
   toggleKeywordMode: () => void;
   setLayoutMode: (mode: LayoutMode) => void;
+  setReaderColumns: (columns: ReaderColumns) => void;
   changeFontZoom: (direction: 1 | -1) => void;
   setVoicevoxSpeakerId: (speakerId: number) => void;
   setVoicevoxSpeed: (speed: number) => void;
@@ -77,6 +80,9 @@ export const useSettingsStore = create<SettingsState>()(
       showFurigana: true,
       keywordMode: false,
       layoutMode: 'alternating' as LayoutMode,
+      // Desktop opens as an open book; tablets and phones stay single-column
+      // because the reader only honours this at >=1100px.
+      readerColumns: 2 as ReaderColumns,
       fontZoom: 1,
       voicevoxSpeakerId: 1,
       voicevoxSpeed: 1,
@@ -140,6 +146,8 @@ export const useSettingsStore = create<SettingsState>()(
       toggleKeywordMode: () => set((state) => ({ keywordMode: !state.keywordMode })),
 
       setLayoutMode: (mode) => set({ layoutMode: mode }),
+
+      setReaderColumns: (columns) => set({ readerColumns: columns }),
 
       changeFontZoom: (direction) =>
         set((state) => {

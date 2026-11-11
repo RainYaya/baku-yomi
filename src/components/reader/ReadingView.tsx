@@ -23,6 +23,9 @@ import { useBookmarkStore } from '../../stores/bookmarkSlice';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
   FiBookmark,
+  FiChevronLeft,
+  FiChevronRight,
+  FiColumns,
   FiPause,
   FiPlay,
   FiSettings,
@@ -38,6 +41,31 @@ import {
 } from '../../machines/reader';
 import { registerKeyboardHandler } from '../../lib/keyboard';
 
+/**
+ * A spread is exactly two columns plus the gap between them. The multi-column
+ * container is one spread wide; further columns overflow to the right and are
+ * revealed by translating the container one `pageStep` at a time.
+ */
+function measureSpread(container: HTMLElement) {
+  const gap = parseFloat(getComputedStyle(container).columnGap) || 0;
+  const pageStep = Math.max(1, container.clientWidth + gap);
+
+  // Reading order is left-to-right by column, so the last pair sits in the
+  // last column. The inline card is inserted after its pair and can be last.
+  const pairs = container.querySelectorAll<HTMLElement>('[data-pair-id]');
+  const last = pairs[pairs.length - 1];
+  let maxRight = last ? last.offsetLeft + last.offsetWidth : 0;
+  const card = container.querySelector<HTMLElement>('.inline-card');
+  if (card) {
+    maxRight = Math.max(maxRight, card.offsetLeft + card.offsetWidth);
+  }
+
+  return {
+    pageStep,
+    pageCount: Math.max(1, Math.ceil(maxRight / pageStep)),
+  };
+}
+
 export function ReadingView() {
   const currentBook = useBookStore((s) => s.getCurrentBook());
   const currentChapter = useBookStore((s) => s.getCurrentChapter());
@@ -46,6 +74,8 @@ export function ReadingView() {
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
   const fontZoom = useSettingsStore((s) => s.fontZoom);
   const changeFontZoom = useSettingsStore((s) => s.changeFontZoom);
+  const readerColumns = useSettingsStore((s) => s.readerColumns);
+  const setReaderColumns = useSettingsStore((s) => s.setReaderColumns);
   const voicevoxSpeakerId = useSettingsStore((s) => s.voicevoxSpeakerId);
   const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
   const voicevoxPitch = useSettingsStore((s) => s.voicevoxPitch);
@@ -77,6 +107,21 @@ export function ReadingView() {
   const [explainFragment, setExplainFragment] = useState('');
   const [showBookmarkList, setShowBookmarkList] = useState(false);
   const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
+  // The two-column spread is a desktop affordance; tablets and phones keep
+  // the single-column flow they were tuned for.
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1100px)').matches : false
+  );
+  const selectedPairIdRef = useRef<string | null>(null);
+  const lastFontZoomRef = useRef(fontZoom);
+  const [spreadPage, setSpreadPage] = useState(0);
+  const [spreadPageCount, setSpreadPageCount] = useState(1);
+  const [spreadPageStep, setSpreadPageStep] = useState(0);
+  const [spreadAnimate, setSpreadAnimate] = useState(false);
+  const spreadPageRef = useRef(0);
+  const spreadPageCountRef = useRef(1);
+  const spreadPageStepRef = useRef(0);
+  const lastWheelTurnRef = useRef(0);
   const lastSelectedPairId = useRef<string | null>(null);
   const skipNextScrollRef = useRef(false);
   const pendingFocusRef = useRef(false);
@@ -88,6 +133,25 @@ export function ReadingView() {
   const deskOpen = session.surface === 'desk';
   const autoReadOn = isAutoReadOn(autoRead);
   const autoReadBusy = isAutoReadBusy(autoRead);
+  const columnMode: 1 | 2 = isDesktop && readerColumns === 2 ? 2 : 1;
+
+  useEffect(() => {
+    selectedPairIdRef.current = selectedPairId;
+  }, [selectedPairId]);
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1100px)');
+    const update = () => setIsDesktop(query.matches);
+    update();
+    query.addEventListener('change', update);
+    // Device emulation and some embedded webviews change the viewport
+    // without dispatching the media-query change event.
+    window.addEventListener('resize', update);
+    return () => {
+      query.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
 
   useEffect(() => {
     autoReadRef.current = autoRead;
@@ -112,6 +176,23 @@ export function ReadingView() {
     );
   }, []);
 
+  const ensureSpreadMetrics = useCallback(() => {
+    const container = scrollHostRef.current;
+    if (!container) return null;
+    const metrics = measureSpread(container);
+    spreadPageStepRef.current = metrics.pageStep;
+    spreadPageCountRef.current = metrics.pageCount;
+    return metrics;
+  }, []);
+
+  const turnToSpreadPage = useCallback((next: number, animate = true) => {
+    const clamped = Math.max(0, Math.min(spreadPageCountRef.current - 1, next));
+    if (clamped === spreadPageRef.current) return;
+    spreadPageRef.current = clamped;
+    setSpreadAnimate(animate);
+    setSpreadPage(clamped);
+  }, []);
+
   const scrollPairToCenter = useCallback(
     (pairId: string) => {
       const container = scrollHostRef.current;
@@ -120,6 +201,7 @@ export function ReadingView() {
 
       const containerRect = container.getBoundingClientRect();
       const elementRect = element.getBoundingClientRect();
+
       const targetScrollTop =
         container.scrollTop +
         (elementRect.top - containerRect.top) -
@@ -145,6 +227,22 @@ export function ReadingView() {
 
       const containerRect = container.getBoundingClientRect();
       const elementRect = element.getBoundingClientRect();
+
+      if (columnMode === 2) {
+        // The spread pages in whole spreads. Turn to the page that holds the
+        // sentence instead of nudging the columns horizontally.
+        const metrics = ensureSpreadMetrics();
+        if (!metrics) return;
+        const x = elementRect.left - containerRect.left;
+        const targetPage = Math.floor(x / metrics.pageStep + 0.001);
+        // Defer the state update so selection effects never set state
+        // synchronously; layout is already measured at this point.
+        requestAnimationFrame(() =>
+          turnToSpreadPage(targetPage, behavior === 'smooth')
+        );
+        return;
+      }
+
       const margin = Math.min(140, Math.max(48, containerRect.height * 0.18));
       const topBoundary = containerRect.top + margin;
       const bottomBoundary = containerRect.bottom - margin;
@@ -163,12 +261,202 @@ export function ReadingView() {
         behavior,
       });
     },
-    [getPairElement]
+    [columnMode, ensureSpreadMetrics, getPairElement, turnToSpreadPage]
+  );
+
+  /**
+   * Navigation (auto-read, bookmarks) wants the sentence visible. In the
+   * spread that means turning to the page that holds it; in the vertical
+   * flow it means centring it.
+   */
+  const scrollPairToReadingPosition = useCallback(
+    (pairId: string) => {
+      if (columnMode === 2) {
+        scrollPairIntoView(pairId);
+      } else {
+        scrollPairToCenter(pairId);
+      }
+    },
+    [columnMode, scrollPairToCenter, scrollPairIntoView]
   );
 
   useEffect(() => {
+    // The column element is re-created when the spread structure changes.
     scrollHostRef.current = stageRef.current;
-  }, []);
+  }, [columnMode, currentChapter?.id]);
+
+  const syncSpread = useCallback(() => {
+    if (columnMode !== 2) return;
+    const container = scrollHostRef.current;
+    if (!container) return;
+
+    // `column-width` cannot take a percentage. Pin it to the exact half of
+    // the clipped viewport so exactly two columns fill a spread; the CSS
+    // calc() is only the pre-hydration fallback.
+    const gap = parseFloat(getComputedStyle(container).columnGap) || 0;
+    const columnWidth = Math.max(1, (container.clientWidth - gap) / 2);
+    const currentWidth = parseFloat(container.style.columnWidth);
+    if (!Number.isFinite(currentWidth) || Math.abs(currentWidth - columnWidth) > 0.5) {
+      container.style.columnWidth = `${columnWidth}px`;
+    }
+
+    const { pageStep, pageCount } = measureSpread(container);
+    // A step change (resize, column-width change) must land instantly; a
+    // page-count-only change must not cancel an in-flight page turn.
+    const stepChanged = Math.abs(pageStep - spreadPageStepRef.current) > 0.5;
+    spreadPageStepRef.current = pageStep;
+    spreadPageCountRef.current = pageCount;
+    const next = Math.min(spreadPageRef.current, pageCount - 1);
+    spreadPageRef.current = next;
+    if (stepChanged) setSpreadAnimate(false);
+    setSpreadPageStep(pageStep);
+    setSpreadPageCount(pageCount);
+    setSpreadPage(next);
+  }, [columnMode]);
+
+  // Re-measure the spread after layout changes that can change the number of
+  // columns: resize, font zoom, chapter change, inline card open/close or a
+  // feedback pane growing. Measurements happen after layout, never during
+  // render.
+  useEffect(() => {
+    if (columnMode !== 2) return;
+    const container = scrollHostRef.current;
+    if (!container) return;
+
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => syncSpread());
+    };
+    schedule();
+
+    const observer = new ResizeObserver(schedule);
+    observer.observe(container);
+    const card = container.querySelector<HTMLElement>('.inline-card');
+    if (card) observer.observe(card);
+
+    // Web fonts can change the line height and therefore the column count
+    // after the first measurement.
+    let cancelled = false;
+    void document.fonts?.ready.then(() => {
+      if (!cancelled) schedule();
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [
+    columnMode,
+    syncSpread,
+    currentChapter?.id,
+    inlineOpen,
+    session.pairId,
+    inlineTab,
+    fontZoom,
+  ]);
+
+  // Two-column mode turns whole spreads, never free horizontal scrolling.
+  // Text fields keep their own scrolling.
+  useEffect(() => {
+    if (columnMode !== 2) return;
+    const container = scrollHostRef.current;
+    if (!container) return;
+    // Listen on the sheet, not only the column: the chapter head and footer
+    // are siblings of the scroll container and should page too.
+    const wheelHost = container.closest<HTMLElement>('.binder-sheet') ?? container;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('textarea, input, [contenteditable="true"]')) return;
+
+      // Let a scrollable card body consume the wheel first; chain to the
+      // spread when it reaches an edge. A non-scrolling body must not
+      // swallow the wheel (the old inline-card trap).
+      let node: HTMLElement | null = target;
+      while (node && node !== wheelHost) {
+        if (node.matches('.expand-body, .explain-content-body')) {
+          const canScroll = node.scrollHeight > node.clientHeight + 1;
+          if (canScroll) {
+            const goingUp = event.deltaY < 0;
+            const atTop = node.scrollTop <= 0;
+            const atBottom =
+              node.scrollTop + node.clientHeight >= node.scrollHeight - 1;
+            if (!(goingUp && atTop) && !(!goingUp && atBottom)) return;
+          }
+        }
+        node = node.parentElement;
+      }
+
+      // A wheel gesture turns exactly one spread. Trackpads emit a burst of
+      // small events, so a short cooldown keeps the page from skipping.
+      if (event.deltaY === 0) return;
+      const now = performance.now();
+      if (now - lastWheelTurnRef.current < 450) {
+        event.preventDefault();
+        return;
+      }
+      lastWheelTurnRef.current = now;
+      const metrics = ensureSpreadMetrics();
+      if (!metrics) return;
+      turnToSpreadPage(
+        spreadPageRef.current + (event.deltaY > 0 ? 1 : -1),
+        true
+      );
+      event.preventDefault();
+    };
+
+    wheelHost.addEventListener('wheel', handleWheel, { passive: false });
+    return () => wheelHost.removeEventListener('wheel', handleWheel);
+  }, [columnMode, ensureSpreadMetrics, turnToSpreadPage]);
+
+  // Switching between the vertical flow and the spread leaves the old axis
+  // scrolled; reset it and bring the current reading position back into view.
+  useEffect(() => {
+    const container = scrollHostRef.current;
+    if (!container) return;
+    if (columnMode === 1) {
+      container.scrollLeft = 0;
+    } else {
+      container.scrollTop = 0;
+    }
+    const savedIndex = currentChapter
+      ? getReadingProgress(currentChapter.id)
+      : 0;
+    const id =
+      selectedPairIdRef.current ??
+      currentChapter?.pairs[savedIndex]?.id ??
+      null;
+    if (!id) {
+      if (columnMode === 2) {
+        requestAnimationFrame(() => turnToSpreadPage(0, false));
+      }
+      return;
+    }
+    const frame = requestAnimationFrame(() => scrollPairIntoView(id, 'auto'));
+    return () => cancelAnimationFrame(frame);
+  }, [
+    columnMode,
+    currentChapter,
+    getReadingProgress,
+    scrollPairIntoView,
+    turnToSpreadPage,
+  ]);
+
+  // Font size changes reflow the columns; keep the current sentence visible.
+  // Selection changes are handled by the smooth selection effect, so this
+  // only reacts to an actual zoom change.
+  useEffect(() => {
+    if (columnMode !== 2) return;
+    if (lastFontZoomRef.current === fontZoom) return;
+    lastFontZoomRef.current = fontZoom;
+    const id = selectedPairIdRef.current;
+    if (!id) return;
+    const frame = requestAnimationFrame(() => scrollPairIntoView(id, 'auto'));
+    return () => cancelAnimationFrame(frame);
+  }, [fontZoom, columnMode, scrollPairIntoView]);
 
   const prefetchAhead = useCallback(
     (fromPairId: string, count = PREFETCH_WINDOW) => {
@@ -343,7 +631,7 @@ export function ReadingView() {
       // card is not scrolled twice.
       skipNextScrollRef.current = true;
       handleSelectPair(nextPair.id);
-      scrollPairToCenter(nextPair.id);
+      scrollPairToReadingPosition(nextPair.id);
       sendAutoRead({ type: 'ADVANCE', pairId: nextPair.id });
       void startPlayPair(nextPair.id);
     });
@@ -352,7 +640,7 @@ export function ReadingView() {
   }, [
     currentChapter,
     handleSelectPair,
-    scrollPairToCenter,
+    scrollPairToReadingPosition,
     sendAutoRead,
     startPlayPair,
   ]);
@@ -361,8 +649,10 @@ export function ReadingView() {
     setVoicevoxCacheLimit(CACHE_MAX_MB * 1024 * 1024);
   }, [CACHE_MAX_MB]);
 
+  const currentChapterId = currentChapter?.id;
+
   useEffect(() => {
-    if (!currentChapter) {
+    if (!currentChapterId) {
       clearVoicevoxCache();
       return;
     }
@@ -371,7 +661,7 @@ export function ReadingView() {
     const usageMB = (stats.totalBytes / (1024 * 1024)).toFixed(1);
     const limitMB = (stats.maxBytes / (1024 * 1024)).toFixed(0);
     console.debug(`[TTS cache] ${usageMB}MB / ${limitMB}MB, items=${stats.items}, evictions=${stats.evictions}`);
-  }, [currentChapter?.id]);
+  }, [currentChapterId]);
 
   const toggleAutoRead = useCallback(() => {
     const pairs = currentChapter?.pairs ?? [];
@@ -395,7 +685,7 @@ export function ReadingView() {
       skipNextScrollRef.current = true;
       handleSelectPair(startId);
     }
-    scrollPairToCenter(startId);
+    scrollPairToReadingPosition(startId);
     void prefetchVoicevox(
       currentChapter?.pairs.find((p) => p.id === startId)?.japanese ?? '',
       voicevoxSpeakerId,
@@ -411,7 +701,7 @@ export function ReadingView() {
     currentChapter,
     handleSelectPair,
     prefetchAhead,
-    scrollPairToCenter,
+    scrollPairToReadingPosition,
     selectedPairId,
     sendAutoRead,
     startPlayPair,
@@ -455,11 +745,24 @@ export function ReadingView() {
       if (!container || !card) return;
       const containerRect = container.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
+      if (columnMode === 2) {
+        const metrics = ensureSpreadMetrics();
+        if (!metrics) return;
+        const x = cardRect.left - containerRect.left;
+        turnToSpreadPage(Math.floor(x / metrics.pageStep + 0.001), true);
+        return;
+      }
       const top = container.scrollTop + cardRect.top - containerRect.top - 70;
       container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     });
     return () => cancelAnimationFrame(frame);
-  }, [inlineOpen, session.pairId]);
+  }, [
+    inlineOpen,
+    session.pairId,
+    columnMode,
+    ensureSpreadMetrics,
+    turnToSpreadPage,
+  ]);
 
   // j/k 导航 & 句内/练习桌快捷键
   useEffect(() => {
@@ -500,6 +803,17 @@ export function ReadingView() {
       if (isInput) return false;
       // The desk is its own mode; reading shortcuts must not fire behind it.
       if (session.surface === 'desk') return false;
+
+      if (columnMode === 2) {
+        if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+          turnToSpreadPage(spreadPageRef.current + 1);
+          return true;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          turnToSpreadPage(spreadPageRef.current - 1);
+          return true;
+        }
+      }
 
       // 用 lastSelectedPairId 作为当前位置基准
       const currentId = selectedPairId ?? lastSelectedPairId.current;
@@ -578,6 +892,8 @@ export function ReadingView() {
     inlineTab,
     session.surface,
     chapterMenuOpen,
+    columnMode,
+    turnToSpreadPage,
     focusInput,
     blurInput,
     clearSelection,
@@ -628,7 +944,7 @@ export function ReadingView() {
       handleSelectPair(bookmark.pairId);
 
       requestAnimationFrame(() => {
-        scrollPairToCenter(bookmark.pairId);
+        scrollPairToReadingPosition(bookmark.pairId);
       });
     }
     setScrollToBookmarkId(null);
@@ -638,7 +954,7 @@ export function ReadingView() {
     getPairElement,
     setScrollToBookmarkId,
     handleSelectPair,
-    scrollPairToCenter,
+    scrollPairToReadingPosition,
   ]);
 
   // Close panel when clicking outside (on the reading area)
@@ -674,6 +990,15 @@ export function ReadingView() {
           `[data-pair-id="${CSS.escape(pair.id)}"]`
         );
         if (!element) return;
+        if (columnMode === 2) {
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = element.getBoundingClientRect();
+          const metrics = ensureSpreadMetrics();
+          if (!metrics) return;
+          const x = elementRect.left - containerRect.left;
+          turnToSpreadPage(Math.floor(x / metrics.pageStep + 0.001), false);
+          return;
+        }
         const offset =
           element.getBoundingClientRect().top -
           container.getBoundingClientRect().top +
@@ -682,7 +1007,13 @@ export function ReadingView() {
         container.scrollTo({ top: Math.max(0, offset), behavior: 'instant' });
       });
     }
-  }, [currentChapter, getReadingProgress]);
+  }, [
+    currentChapter,
+    getReadingProgress,
+    columnMode,
+    ensureSpreadMetrics,
+    turnToSpreadPage,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -695,6 +1026,9 @@ export function ReadingView() {
   // source of scroll jank.
   useEffect(() => {
     if (!currentChapter) return;
+    // In the spread there is no vertical reading position to measure; the
+    // selected sentence is the cursor, so progress follows selection below.
+    if (columnMode === 2) return;
     const container = scrollHostRef.current;
     if (!container) return;
 
@@ -743,7 +1077,14 @@ export function ReadingView() {
       }
       flush();
     };
-  }, [currentChapter, setReadingProgress]);
+  }, [currentChapter, setReadingProgress, columnMode]);
+
+  // Two-column progress follows the sentence cursor rather than scrollTop.
+  useEffect(() => {
+    if (columnMode !== 2 || !currentChapter || !selectedPairId) return;
+    const index = currentChapter.pairs.findIndex((p) => p.id === selectedPairId);
+    if (index >= 0) setReadingProgress(currentChapter.id, index);
+  }, [columnMode, currentChapter, selectedPairId, setReadingProgress]);
 
   const switchChapter = useCallback(
     (index: number) => {
@@ -751,9 +1092,12 @@ export function ReadingView() {
       setCurrentChapter(index);
       setExplainFragment('');
       sendSession({ type: 'DESELECT' });
-      requestAnimationFrame(() => stageRef.current?.scrollTo({ top: 0 }));
+      // Reset both the vertical scroll and the spread page; the restore
+      // effect above then jumps to the saved sentence.
+      turnToSpreadPage(0, false);
+      requestAnimationFrame(() => stageRef.current?.scrollTo({ top: 0, left: 0 }));
     },
-    [sendSession, setCurrentChapter]
+    [sendSession, setCurrentChapter, turnToSpreadPage]
   );
 
   if (!currentBook) return null;
@@ -774,10 +1118,97 @@ export function ReadingView() {
   const totalPairs = currentChapter.pairs.length;
   const currentIndex = Math.min(totalPairs, Math.max(1, savedProgress + 1));
 
+  const chapterHead = (
+    <>
+      <div className="chapter-kicker">
+        第 {currentChapter.index + 1} 章 · CHAPTER {currentChapter.index + 1}
+      </div>
+      <h1 className="chapter-title">{currentChapter.title}</h1>
+      <p className="chapter-byline">
+        {currentBook.author && currentBook.author !== '[object Object]'
+          ? currentBook.author
+          : '未知作者'}{' '}
+        · {currentChapter.pairs.length} 句
+      </p>
+    </>
+  );
+
+  const pairList = currentChapter.pairs.map((pair) => (
+    <Fragment key={pair.id}>
+      <SentencePairCard
+        pair={pair}
+        isSelected={selectedPairId === pair.id}
+        onSelect={handleCardSelect}
+        onPractice={handlePractice}
+        onExplain={handleExplain}
+      />
+      {inlineOpen && session.pairId === pair.id && (
+        <InlinePracticeCard
+          pair={pair}
+          session={session}
+          tab={inlineTab}
+          fragment={explainFragment}
+          onTabChange={setInlineTab}
+          onClose={handleBack}
+          onOpenDesk={handleOpenDesk}
+          onSessionEvent={sendSession}
+          inputRef={inputRef}
+        />
+      )}
+    </Fragment>
+  ));
+
+  const readFoot = (
+    <footer className="read-foot">
+      <span>
+        <kbd>j</kbd>/<kbd>k</kbd> 移动
+        {columnMode === 2 && (
+          <>
+            {' · '}滚轮 / <kbd>←</kbd>
+            <kbd>→</kbd> 翻页
+          </>
+        )}{' '}
+        · <kbd>P</kbd> 練習 · <kbd>E</kbd> 講解 · <kbd>?</kbd> 全部快捷键
+      </span>
+      <div className="read-foot-end">
+        {columnMode === 2 && (
+          <div className="spread-pager">
+            <button
+              className="spread-pager-btn"
+              onClick={() => turnToSpreadPage(spreadPage - 1)}
+              disabled={spreadPage <= 0}
+              aria-label="上一页"
+              title="上一页"
+            >
+              <FiChevronLeft size={14} />
+            </button>
+            <span className="spread-pager-count">
+              {spreadPage + 1} / {spreadPageCount}
+            </span>
+            <button
+              className="spread-pager-btn"
+              onClick={() => turnToSpreadPage(spreadPage + 1)}
+              disabled={spreadPage >= spreadPageCount - 1}
+              aria-label="下一页"
+              title="下一页"
+            >
+              <FiChevronRight size={14} />
+            </button>
+          </div>
+        )}
+        <button className="foot-audio" data-on={autoReadOn} onClick={toggleAutoRead}>
+          {autoReadOn ? <FiPause size={11} /> : <FiPlay size={11} />}
+          {autoReadOn ? '正在连续朗读' : '朗读整章'}
+        </button>
+      </div>
+    </footer>
+  );
+
   return (
     <div
       className="binder-stage"
       data-reader-state={session.surface}
+      data-columns={columnMode}
       data-inline-tab={inlineTab}
       data-auto-read-state={autoRead.status}
       data-selection-state={selection ? 'selected' : 'idle'}
@@ -865,6 +1296,17 @@ export function ReadingView() {
           >
             A+
           </button>
+          {isDesktop && (
+            <button
+              className="binder-icon-btn"
+              data-on={columnMode === 2}
+              onClick={() => setReaderColumns(columnMode === 2 ? 1 : 2)}
+              title={columnMode === 2 ? '切换为单栏' : '切换为双栏'}
+              aria-label={columnMode === 2 ? '切换为单栏' : '切换为双栏'}
+            >
+              <FiColumns size={15} />
+            </button>
+          )}
           <ThemeToggle />
           <button
             className="binder-icon-btn"
@@ -900,62 +1342,41 @@ export function ReadingView() {
         )}
 
         <div className="binder-sheet" onClick={handleReadingAreaClick}>
-          <div
-            ref={stageRef}
-            className="binder-column"
-            style={{ fontSize: `${16 * fontZoom}px` }}
-          >
-            <div className="chapter-kicker">
-              第 {currentChapter.index + 1} 章 · CHAPTER {currentChapter.index + 1}
+          {columnMode === 2 ? (
+            <div className="binder-spread">
+              <div className="spread-head">{chapterHead}</div>
+              <div className="spread-viewport">
+                <div className="spread-clip">
+                  <div
+                    ref={stageRef}
+                    className="binder-column"
+                    data-columns="2"
+                    style={{
+                      fontSize: `${16 * fontZoom}px`,
+                      transform: `translateX(-${spreadPage * spreadPageStep}px)`,
+                      transition: spreadAnimate
+                        ? 'transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)'
+                        : 'none',
+                    }}
+                  >
+                    {pairList}
+                  </div>
+                </div>
+              </div>
+              {readFoot}
             </div>
-            <h1 className="chapter-title">{currentChapter.title}</h1>
-            <p className="chapter-byline">
-              {currentBook.author && currentBook.author !== '[object Object]'
-                ? currentBook.author
-                : '未知作者'}{' '}
-              · {currentChapter.pairs.length} 句
-            </p>
-
-            {currentChapter.pairs.map((pair) => (
-              <Fragment key={pair.id}>
-                <SentencePairCard
-                  pair={pair}
-                  isSelected={selectedPairId === pair.id}
-                  onSelect={handleCardSelect}
-                  onPractice={handlePractice}
-                  onExplain={handleExplain}
-                />
-                {inlineOpen && session.pairId === pair.id && (
-                  <InlinePracticeCard
-                    pair={pair}
-                    session={session}
-                    tab={inlineTab}
-                    fragment={explainFragment}
-                    onTabChange={setInlineTab}
-                    onClose={handleBack}
-                    onOpenDesk={handleOpenDesk}
-                    onSessionEvent={sendSession}
-                    inputRef={inputRef}
-                  />
-                )}
-              </Fragment>
-            ))}
-
-            <footer className="read-foot">
-              <span>
-                <kbd>j</kbd>/<kbd>k</kbd> 移动 · <kbd>P</kbd> 練習 ·{' '}
-                <kbd>E</kbd> 講解 · <kbd>?</kbd> 全部快捷键
-              </span>
-              <button
-                className="foot-audio"
-                data-on={autoReadOn}
-                onClick={toggleAutoRead}
-              >
-                {autoReadOn ? <FiPause size={11} /> : <FiPlay size={11} />}
-                {autoReadOn ? '正在连续朗读' : '朗读整章'}
-              </button>
-            </footer>
-          </div>
+          ) : (
+            <div
+              ref={stageRef}
+              className="binder-column"
+              data-columns="1"
+              style={{ fontSize: `${16 * fontZoom}px` }}
+            >
+              {chapterHead}
+              {pairList}
+              {readFoot}
+            </div>
+          )}
         </div>
       </div>
 

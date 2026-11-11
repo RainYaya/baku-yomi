@@ -2285,11 +2285,213 @@
   }
 }
 
+/* ── Desktop: a paper inset with an optional two-column spread ──────────── */
+
+@media (min-width: 1100px) {
+  .binder-stage {
+    padding: 18px 24px;
+  }
+
+  /* A sheet, not the whole table: keep a small paper margin all round. */
+  .binder {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    box-shadow:
+      0 22px 48px var(--shadow-color),
+      0 2px 0 color-mix(in srgb, white 55%, transparent) inset;
+  }
+
+  .binder-sheet {
+    padding-top: 58px;
+  }
+
+  /* Single-column reading keeps a readable measure inside the sheet; the
+     spread below uses the whole width. */
+  .binder-column {
+    width: 760px;
+    max-width: 760px;
+  }
+
+  /* Keep the margin rule on the reading edge. */
+  .margin-rule {
+    left: calc(52px + (100% - 52px - 760px) / 2 - 22px);
+  }
+
+  .binder-stage[data-columns='2'] .margin-rule {
+    display: none;
+  }
+
+  .binder-spread {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .spread-head {
+    flex: 0 0 auto;
+    padding: 0 56px 10px;
+  }
+
+  .spread-head .chapter-byline {
+    margin-bottom: 0;
+  }
+
+  /* Fixed paper gutters: the viewport keeps them while the clipped pager
+     slides underneath. */
+  .spread-viewport {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 56px 8px;
+  }
+
+  .spread-clip {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Soft page-edge shading; the turn itself is the column sliding one
+     spread width at a time. */
+  .spread-clip::before,
+  .spread-clip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 16px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .spread-clip::before {
+    left: 0;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--text) 5%, transparent),
+      transparent
+    );
+  }
+
+  .spread-clip::after {
+    right: 0;
+    background: linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--text) 5%, transparent),
+      transparent
+    );
+  }
+
+  /* An open book: two columns fill one spread; further columns continue to
+     the right and are revealed by translating the block. `column-fill:
+     auto` keeps long chapters from being clipped. */
+  .binder-spread .binder-column {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+    display: block;
+    padding: 0;
+    overflow: visible;
+    column-width: calc((100vw - 268px) / 2);
+    column-gap: 56px;
+    column-rule: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+    column-fill: auto;
+    will-change: transform;
+  }
+
+  .binder-spread .binder-column .pair,
+  .binder-spread .binder-column .inline-card {
+    break-inside: avoid;
+  }
+
+  /* The practice card lives inside one column; stack its two panes and let
+     the body scroll so a long explanation cannot overflow the column. */
+  .binder-spread .binder-column .inline-card .expand-body {
+    grid-template-columns: 1fr;
+    max-height: calc(100vh - 310px);
+    overflow-y: auto;
+    overscroll-behavior: auto;
+  }
+
+  .binder-spread .binder-column .inline-card .expand-head {
+    gap: 12px;
+  }
+
+  .binder-spread .binder-column .inline-card .expand-meta {
+    display: none;
+  }
+
+  .binder-spread .binder-column .inline-card .feedback-col {
+    border-left: 0;
+    border-top: 1px dashed color-mix(in srgb, var(--text) 16%, transparent);
+  }
+
+  .binder-spread .read-foot {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 10px 56px 14px;
+  }
+
+  .read-foot-end {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .spread-pager {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .spread-pager-btn {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .spread-pager-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+    color: var(--text);
+  }
+
+  .spread-pager-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .spread-pager-count {
+    min-width: 42px;
+    text-align: center;
+    font-size: 9.5px;
+    color: var(--muted);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .inline-card,
   .bookshelf-card {
     animation: none;
     transition: none;
+  }
+
+  .binder-spread .binder-column {
+    /* The page-turn transition is set inline, so it needs !important to be
+       overridden here. */
+    transition: none !important;
   }
 }
 
