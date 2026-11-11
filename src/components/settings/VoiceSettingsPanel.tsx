@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettingsStore, type TTSProviderType } from '../../stores/settingsSlice';
 import {
   clearVoicevoxCache,
@@ -6,6 +6,13 @@ import {
   getVoicevoxSpeakers,
   type VoicevoxSpeaker,
 } from '../../lib/tts/voicevox';
+import {
+  asyncError,
+  asyncIdle,
+  asyncLoading,
+  asyncSuccess,
+  type AsyncState,
+} from '../../machines/async';
 
 type ServerCacheStats = {
   items: number;
@@ -38,9 +45,16 @@ export function VoiceSettingsPanel() {
     setVoicevoxCacheLimitMB,
   } = useSettingsStore();
 
-  const [voicevoxSpeakers, setVoicevoxSpeakers] = useState<VoicevoxSpeaker[]>([]);
+  const [speakersState, setSpeakersState] = useState<AsyncState<VoicevoxSpeaker[]>>(
+    asyncIdle()
+  );
   const [localStatsText, setLocalStatsText] = useState('');
-  const [serverStats, setServerStats] = useState<ServerCacheStats | null>(null);
+  const [serverStatsState, setServerStatsState] =
+    useState<AsyncState<ServerCacheStats>>(asyncIdle());
+  const statsRequestRef = useRef(0);
+
+  const voicevoxSpeakers =
+    speakersState.status === 'success' ? speakersState.data : [];
 
   const speakerOptions = useMemo(
     () =>
@@ -59,13 +73,23 @@ export function VoiceSettingsPanel() {
       `前端缓存：${formatMB(local.totalBytes)} / ${formatMB(local.maxBytes)}，条目 ${local.items}，命中 ${local.hits}，未命中 ${local.misses}`
     );
 
+    const requestId = ++statsRequestRef.current;
+    setServerStatsState(asyncLoading());
     try {
       const response = await fetch('/api/tts/cache/stats');
-      if (!response.ok) return;
+      if (requestId !== statsRequestRef.current) return;
+      if (!response.ok) {
+        setServerStatsState(asyncError(`HTTP ${response.status}`));
+        return;
+      }
       const data = (await response.json()) as ServerCacheStats;
-      setServerStats(data);
-    } catch {
-      // silent
+      if (requestId !== statsRequestRef.current) return;
+      setServerStatsState(asyncSuccess(data));
+    } catch (error) {
+      if (requestId !== statsRequestRef.current) return;
+      setServerStatsState(
+        asyncError(error instanceof Error ? error.message : '无法连接服务端')
+      );
     }
   };
 
@@ -85,17 +109,18 @@ export function VoiceSettingsPanel() {
     let cancelled = false;
 
     if (ttsProvider === 'voicevox') {
-      const loadSpeakers = async () => {
-        try {
-          const speakers = await getVoicevoxSpeakers();
-          if (!cancelled) {
-            setVoicevoxSpeakers(speakers);
-          }
-        } catch (error) {
+      setSpeakersState(asyncLoading());
+      void getVoicevoxSpeakers()
+        .then((speakers) => {
+          if (!cancelled) setSpeakersState(asyncSuccess(speakers));
+        })
+        .catch((error) => {
+          if (cancelled) return;
           console.error('Failed to load VOICEVOX speakers:', error);
-        }
-      };
-      void loadSpeakers();
+          setSpeakersState(
+            asyncError(error instanceof Error ? error.message : '加载失败')
+          );
+        });
     }
 
     void refreshStats();
@@ -127,7 +152,7 @@ export function VoiceSettingsPanel() {
 
       {ttsProvider === 'voicevox' && (
         <>
-          <div>
+          <div data-speaker-state={speakersState.status}>
             <label className="settings-label">VOICEVOX 声音（全局）</label>
             <select
               value={voicevoxSpeakerId}
@@ -144,6 +169,14 @@ export function VoiceSettingsPanel() {
                 <option value={voicevoxSpeakerId}>声音 {voicevoxSpeakerId}</option>
               )}
             </select>
+            {speakersState.status === 'loading' && (
+              <p className="settings-note">声音列表加载中...</p>
+            )}
+            {speakersState.status === 'error' && (
+              <p className="settings-note" style={{ color: 'var(--error-color)' }}>
+                声音列表加载失败：{speakersState.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -219,10 +252,20 @@ export function VoiceSettingsPanel() {
           </button>
         </div>
         <p className="settings-note">{localStatsText || '前端缓存：读取中...'}</p>
-        <p className="settings-note">
-          {serverStats
-            ? `服务端缓存：${formatMB(serverStats.totalBytes)} / ${formatMB(serverStats.maxBytes)}，条目 ${serverStats.items}，命中 ${serverStats.hits}，未命中 ${serverStats.misses}`
-            : '服务端缓存：读取中...'}
+        <p
+          className="settings-note"
+          data-server-stats-state={serverStatsState.status}
+          style={
+            serverStatsState.status === 'error'
+              ? { color: 'var(--error-color)' }
+              : undefined
+          }
+        >
+          {serverStatsState.status === 'success'
+            ? `服务端缓存：${formatMB(serverStatsState.data.totalBytes)} / ${formatMB(serverStatsState.data.maxBytes)}，条目 ${serverStatsState.data.items}，命中 ${serverStatsState.data.hits}，未命中 ${serverStatsState.data.misses}`
+            : serverStatsState.status === 'error'
+              ? `服务端缓存：读取失败（${serverStatsState.message}）`
+              : '服务端缓存：读取中...'}
         </p>
         <div className="flex justify-end">
           <button className="settings-mini-btn danger" onClick={() => void clearBothCaches()}>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Book, Chapter } from '../types';
+import { createDebouncedStorage } from '../lib/debouncedStorage';
 
 interface BookState {
   books: Book[];
@@ -125,6 +126,27 @@ export const useBookStore = create<BookState>()(
       setScrollToPairId: (pairId) =>
         set({ scrollToPairId: pairId }),
     }),
-    { name: 'book-store' }
+    {
+      name: 'book-store',
+      storage: createJSONStorage(() => createDebouncedStorage()),
+      // `scrollToPairId` is a transient cross-component command, not durable
+      // data. Persisting it would replay a stale jump after reload.
+      partialize: (state) => ({
+        books: state.books,
+        currentBookId: state.currentBookId,
+        currentChapterIndex: state.currentChapterIndex,
+        readingProgress: state.readingProgress,
+        lastReadAt: state.lastReadAt,
+        lastChapterIndexByBook: state.lastChapterIndexByBook,
+      }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<BookState> | undefined;
+        return {
+          ...current,
+          ...saved,
+          scrollToPairId: null,
+        };
+      },
+    }
   )
 );

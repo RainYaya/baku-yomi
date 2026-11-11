@@ -3,6 +3,7 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import ai from './routes/ai';
+import explain from './routes/explain';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -20,6 +21,7 @@ if (isProd) {
 }
 
 app.route('/api', ai);
+app.route('/api', explain);
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 

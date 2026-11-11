@@ -9,15 +9,7 @@ export type VoicevoxSpeaker = {
   styles: VoicevoxSpeakerStyle[];
 };
 
-type VoicevoxPlaybackState = {
-  pairId: string | null;
-  isLoading: boolean;
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-};
-
-type PlaybackListener = (state: VoicevoxPlaybackState) => void;
+type PlaybackListener = (state: TtsPlaybackView) => void;
 type PlaybackEndedListener = (pairId: string | null) => void;
 
 type VoiceCacheItem = {
@@ -38,6 +30,14 @@ type VoiceCacheStats = {
 };
 
 import { useSettingsStore } from '../../stores/settingsSlice';
+import {
+  toPlaybackView,
+  ttsMachine,
+  type TtsEvent,
+  type TtsPlaybackView,
+  type TtsState,
+} from '../../machines/tts';
+import { registerMachineSnapshot } from '../../machines/registry';
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentAudioUrl: string | null = null;
@@ -54,23 +54,27 @@ let speakersRequest: Promise<VoicevoxSpeaker[]> | null = null;
 const listeners = new Set<PlaybackListener>();
 const endedListeners = new Set<PlaybackEndedListener>();
 
-let playbackState: VoicevoxPlaybackState = {
-  pairId: null,
-  isLoading: false,
-  isPlaying: false,
-  currentTime: 0,
-  duration: 0,
-};
+let ttsState: TtsState = ttsMachine.initial;
+let playbackToken = 0;
+
+registerMachineSnapshot('tts', () => ttsState);
 
 function emitPlaybackState(): void {
+  const view = toPlaybackView(ttsState);
   for (const listener of listeners) {
-    listener(playbackState);
+    listener(view);
   }
 }
 
-function setPlaybackState(partial: Partial<VoicevoxPlaybackState>): void {
-  playbackState = { ...playbackState, ...partial };
+function dispatchTts(event: TtsEvent): void {
+  const next = ttsMachine.transition(ttsState, event);
+  if (next === ttsState) return;
+  ttsState = next;
   emitPlaybackState();
+}
+
+export function getVoicevoxState(): TtsState {
+  return ttsState;
 }
 
 function emitPlaybackEnded(pairId: string | null): void {
@@ -197,7 +201,7 @@ export function prefetchVoicevox(text: string, speaker = 1, options?: VoicevoxSy
   return ensureVoiceUrl(text, speaker, options).then(() => undefined);
 }
 
-function cleanupCurrentAudio(): void {
+function releaseAudio(): void {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
@@ -215,18 +219,16 @@ function cleanupCurrentAudio(): void {
 
   currentAudio = null;
   currentAudioUrl = null;
-  setPlaybackState({
-    pairId: null,
-    isLoading: false,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-  });
+}
+
+function cleanupCurrentAudio(): void {
+  releaseAudio();
+  dispatchTts({ type: 'STOP' });
 }
 
 export function subscribeVoicevoxPlayback(listener: PlaybackListener): () => void {
   listeners.add(listener);
-  listener(playbackState);
+  listener(toPlaybackView(ttsState));
   return () => listeners.delete(listener);
 }
 
@@ -235,22 +237,28 @@ export function subscribeVoicevoxEnded(listener: PlaybackEndedListener): () => v
   return () => endedListeners.delete(listener);
 }
 
-export function toggleVoicevoxPause(): void {
-  if (!currentAudio) return;
+export function toggleVoicevoxPause(): boolean {
+  if (!currentAudio) return false;
   if (currentAudio.paused) {
     void currentAudio.play();
   } else {
     currentAudio.pause();
   }
+  return true;
 }
 
 export function seekVoicevox(seconds: number): void {
   if (!currentAudio) return;
   currentAudio.currentTime = Math.max(0, Math.min(seconds, currentAudio.duration || 0));
-  setPlaybackState({ currentTime: currentAudio.currentTime });
+  dispatchTts({
+    type: 'TIME',
+    token: playbackToken,
+    currentTime: currentAudio.currentTime,
+  });
 }
 
 export function stopVoicevoxPlayback(): void {
+  playbackToken += 1;
   cleanupCurrentAudio();
 }
 
@@ -318,45 +326,62 @@ export async function playVoicevox(
   pairId?: string,
   options?: VoicevoxSynthesisOptions
 ): Promise<void> {
-  cleanupCurrentAudio();
-  setPlaybackState({ pairId: pairId ?? null, isLoading: true, isPlaying: false });
-
-  const url = await ensureVoiceUrl(text, speaker, options);
-  const audio = new Audio(url);
-
-  currentAudio = audio;
-  currentAudioUrl = null;
-
-  audio.onloadedmetadata = () => {
-    setPlaybackState({ duration: audio.duration || 0 });
-  };
-
-  audio.ontimeupdate = () => {
-    setPlaybackState({ currentTime: audio.currentTime || 0 });
-  };
-
-  audio.onplay = () => {
-    setPlaybackState({ isLoading: false, isPlaying: true });
-  };
-
-  audio.onpause = () => {
-    setPlaybackState({ isPlaying: false });
-  };
-
-  audio.onended = () => {
-    const endedPairId = playbackState.pairId;
-    cleanupCurrentAudio();
-    emitPlaybackEnded(endedPairId);
-  };
-
-  audio.onerror = () => {
-    cleanupCurrentAudio();
-  };
+  const token = ++playbackToken;
+  releaseAudio();
+  dispatchTts({ type: 'LOAD', token, pairId: pairId ?? null });
 
   try {
+    const url = await ensureVoiceUrl(text, speaker, options);
+    if (token !== playbackToken) return;
+
+    const audio = new Audio(url);
+    currentAudio = audio;
+    currentAudioUrl = null;
+
+    const isCurrent = () => token === playbackToken && currentAudio === audio;
+
+    audio.onloadedmetadata = () => {
+      if (!isCurrent()) return;
+      dispatchTts({ type: 'METADATA', token, duration: audio.duration || 0 });
+    };
+
+    audio.ontimeupdate = () => {
+      if (!isCurrent()) return;
+      dispatchTts({ type: 'TIME', token, currentTime: audio.currentTime || 0 });
+    };
+
+    audio.onplay = () => {
+      if (!isCurrent()) return;
+      dispatchTts({ type: 'PLAY', token });
+    };
+
+    audio.onpause = () => {
+      if (!isCurrent()) return;
+      dispatchTts({ type: 'PAUSE', token, currentTime: audio.currentTime || 0 });
+    };
+
+    audio.onended = () => {
+      if (!isCurrent()) return;
+      releaseAudio();
+      dispatchTts({ type: 'END', token });
+      emitPlaybackEnded(pairId ?? null);
+    };
+
+    audio.onerror = () => {
+      if (!isCurrent()) return;
+      releaseAudio();
+      dispatchTts({ type: 'ERROR', token, message: 'TTS playback failed' });
+    };
+
     await audio.play();
   } catch (error) {
-    cleanupCurrentAudio();
+    if (token !== playbackToken) return;
+    releaseAudio();
+    dispatchTts({
+      type: 'ERROR',
+      token,
+      message: error instanceof Error ? error.message : 'TTS playback failed',
+    });
     throw error;
   }
 }

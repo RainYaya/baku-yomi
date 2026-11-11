@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Book } from '../../types';
 import { useBookStore } from '../../stores/bookSlice';
-import { FiBook, FiPlay, FiEdit2, FiTrash2, FiLayers, FiFileText } from 'react-icons/fi';
+import { FiPlay, FiEdit2, FiTrash2, FiLayers, FiFileText } from 'react-icons/fi';
 
 interface Props {
   book: Book;
@@ -20,14 +20,16 @@ function calcProgressPct(book: Book, readingProgress: Record<string, number>): n
   return Math.round((readPairs / totalPairs) * 100);
 }
 
-function coverGradient(title: string): string {
-  let hash = 0;
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash << 5) - hash + title.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash) % 360;
-  return `linear-gradient(145deg, hsl(${hue} 30% 25%), hsl(${(hue + 40) % 360} 35% 18%))`;
+function coverInitial(title: string): string {
+  return title.trim().slice(0, 1) || '書';
+}
+
+/**
+ * Older imports could stringify an EPUB creator object, leaving the literal
+ * "[object Object]" in storage. Show the fallback instead of that artifact.
+ */
+function authorName(author: string): string {
+  return author && author !== '[object Object]' ? author : '未知作者';
 }
 
 export function BookCard({ book, onOpen }: Props) {
@@ -36,6 +38,7 @@ export function BookCard({ book, onOpen }: Props) {
   const renameBook = useBookStore((s) => s.renameBook);
 
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [titleDraft, setTitleDraft] = useState(book.title);
 
   const progressPct = useMemo(
@@ -49,34 +52,39 @@ export function BookCard({ book, onOpen }: Props) {
   );
 
   const handleDelete = () => {
-    if (window.confirm(`确定删除《${book.title}》吗？`)) {
-      removeBook(book.id);
-    }
+    removeBook(book.id);
+    setConfirmingDelete(false);
   };
 
   return (
-    <article className="bookshelf-card">
+    <article
+      className="bookshelf-card"
+      data-rename-state={editing ? 'editing' : 'viewing'}
+      data-delete-state={confirmingDelete ? 'confirming' : 'idle'}
+    >
       {/* Cover */}
-      <div
+      <button
+        type="button"
         className="bookshelf-cover"
-        style={{ background: book.coverUrl ? undefined : coverGradient(book.title) }}
         onClick={onOpen}
+        aria-label={`打开《${book.title}》`}
       >
         {book.coverUrl ? (
-          <img src={book.coverUrl} alt={book.title} className="bookshelf-cover-img" />
+          <img src={book.coverUrl} alt="" className="bookshelf-cover-img" />
         ) : (
           <div className="bookshelf-cover-fallback">
-            <FiBook size={28} style={{ opacity: 0.5 }} />
+            <span className="bookshelf-cover-initial" aria-hidden="true">
+              {coverInitial(book.title)}
+            </span>
             <span className="bookshelf-cover-title">{book.title}</span>
           </div>
         )}
-        {/* Progress overlay on cover */}
         {progressPct > 0 && (
           <div className="bookshelf-cover-progress">
             <div className="bookshelf-cover-progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
         )}
-      </div>
+      </button>
 
       {/* Body */}
       <div className="bookshelf-card-body">
@@ -115,7 +123,7 @@ export function BookCard({ book, onOpen }: Props) {
         ) : (
           <>
             <h3 className="bookshelf-title" title={book.title}>{book.title}</h3>
-            <p className="bookshelf-subtitle">{book.author || '未知作者'}</p>
+            <p className="bookshelf-subtitle">{authorName(book.author)}</p>
 
             {/* Stats row */}
             <div className="bookshelf-stats">
@@ -138,26 +146,43 @@ export function BookCard({ book, onOpen }: Props) {
 
         {/* Actions */}
         {!editing && (
-          <div className="bookshelf-actions">
-            <button className="bookshelf-btn-primary" onClick={onOpen}>
-              <FiPlay size={13} />
-              {progressPct > 0 ? '继续阅读' : '开始阅读'}
-            </button>
-            <button
-              className="bookshelf-btn-icon"
-              onClick={() => setEditing(true)}
-              title="重命名"
-            >
-              <FiEdit2 size={14} />
-            </button>
-            <button
-              className="bookshelf-btn-icon bookshelf-btn-danger"
-              onClick={handleDelete}
-              title="删除"
-            >
-              <FiTrash2 size={14} />
-            </button>
-          </div>
+          confirmingDelete ? (
+            <div className="bookshelf-confirm" role="group" aria-label="确认删除">
+              <span>删除这本书？</span>
+              <button className="bookshelf-confirm-danger" onClick={handleDelete}>
+                确定删除
+              </button>
+              <button
+                className="bookshelf-btn-icon"
+                onClick={() => setConfirmingDelete(false)}
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="bookshelf-actions">
+              <button className="bookshelf-btn-primary" onClick={onOpen}>
+                <FiPlay size={13} />
+                {progressPct > 0 ? '继续阅读' : '开始阅读'}
+              </button>
+              <button
+                className="bookshelf-btn-icon"
+                onClick={() => setEditing(true)}
+                title="重命名"
+                aria-label={`重命名《${book.title}》`}
+              >
+                <FiEdit2 size={14} />
+              </button>
+              <button
+                className="bookshelf-btn-icon bookshelf-btn-danger"
+                onClick={() => setConfirmingDelete(true)}
+                title="删除"
+                aria-label={`删除《${book.title}》`}
+              >
+                <FiTrash2 size={14} />
+              </button>
+            </div>
+          )
         )}
       </div>
     </article>

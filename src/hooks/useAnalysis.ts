@@ -2,9 +2,10 @@ import { useCallback } from 'react';
 import { usePracticeStore } from '../stores/practiceSlice';
 import { useSettingsStore } from '../stores/settingsSlice';
 import { analyzeTranslation } from '../lib/ai/client';
+import { isKeylessProvider } from '../types';
 
 export function useAnalysis() {
-  const { setAnalysis, setAnalyzing, analyzingPairId } = usePracticeStore();
+  const setAnalysis = usePracticeStore((s) => s.setAnalysis);
   const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
 
   const analyze = useCallback(
@@ -14,31 +15,27 @@ export function useAnalysis() {
       chinese: string,
       userTranslation: string
     ) => {
-      if (!aiProvider.apiKey) {
+      // Keyless providers (B站免费) legitimately have no key; only demand one
+      // from providers that need it.
+      if (!aiProvider.apiKey && !isKeylessProvider(aiProvider.type)) {
         throw new Error('请先在设置中配置AI API Key');
       }
       if (!userTranslation.trim()) {
         throw new Error('请先输入你的日语回译');
       }
 
-      setAnalyzing(pairId);
-      try {
-        const result = await analyzeTranslation(
-          aiProvider,
-          original,
-          chinese,
-          userTranslation,
-          pairId
-        );
-        setAnalysis(pairId, result);
-        return result;
-      } catch (e) {
-        setAnalyzing(null);
-        throw e;
-      }
+      const result = await analyzeTranslation(
+        aiProvider,
+        original,
+        chinese,
+        userTranslation,
+        pairId
+      );
+      setAnalysis(pairId, result);
+      return result;
     },
-    [aiProvider, setAnalysis, setAnalyzing]
+    [aiProvider, setAnalysis]
   );
 
-  return { analyze, analyzingPairId };
+  return { analyze };
 }

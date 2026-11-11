@@ -1,10 +1,15 @@
 import { useMemo } from 'react';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import type { AIProviderType } from '../../types';
-import { DEFAULT_MODELS } from '../../types';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import {
+  DEFAULT_MODELS,
+  BILIBILI_FREE_MODEL,
+  isKeylessProvider,
+} from '../../types';
+import { FiPlus, FiTrash2, FiZap } from 'react-icons/fi';
 
-const PROVIDERS: { value: AIProviderType; label: string }[] = [
+const PROVIDERS: { value: AIProviderType; label: string; note?: string }[] = [
+  { value: 'bilibili-free', label: 'B站免费（无需 Key）', note: '匿名可用，适合日常讲解' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic (Claude)' },
   { value: 'google', label: 'Google (Gemini)' },
@@ -27,6 +32,8 @@ export function AISettingsPanel() {
   );
 
   if (!active) return null;
+
+  const keyless = isKeylessProvider(active.type);
 
   return (
     <div className="space-y-5">
@@ -94,39 +101,65 @@ export function AISettingsPanel() {
         </select>
       </div>
 
-      <div>
-        <label className="settings-label">API Key</label>
-        <input
-          type="password"
-          value={active.apiKey}
-          onChange={(e) => updateAIProvider(active.id, { apiKey: e.target.value })}
-          className="settings-input"
-          placeholder="sk-..."
-        />
-      </div>
-
-      <div>
-        <label className="settings-label">模型名称</label>
-        <input
-          type="text"
-          value={active.model}
-          onChange={(e) => updateAIProvider(active.id, { model: e.target.value })}
-          className="settings-input"
-          placeholder={DEFAULT_MODELS[active.type]}
-        />
-      </div>
-
-      {active.type === 'openai-compatible' && (
-        <div>
-          <label className="settings-label">Base URL</label>
-          <input
-            type="text"
-            value={active.baseUrl ?? ''}
-            onChange={(e) => updateAIProvider(active.id, { baseUrl: e.target.value })}
-            placeholder="https://api.example.com/v1"
-            className="settings-input"
-          />
+      {keyless ? (
+        <div
+          className="rounded p-3 text-xs space-y-1.5"
+          style={{
+            backgroundColor: 'var(--accent-subtle)',
+            color: 'var(--ink-secondary)',
+            fontFamily: 'var(--font-ui)',
+            lineHeight: 1.7,
+          }}
+        >
+          <div className="flex items-center gap-1.5" style={{ color: 'var(--accent-secondary)' }}>
+            <FiZap size={12} />
+            无需 API Key
+          </div>
+          <p>
+            使用 B 站 Index-Translate 的匿名接口，模型固定为 {BILIBILI_FREE_MODEL}。
+            请求走流式以避开网关超时，长讲解也能完整返回。
+          </p>
+          <p style={{ opacity: 0.7 }}>
+            这是第三方免费服务，不保证可用性与稳定性。需要更强的分析时，再切回自己的 Key。
+          </p>
         </div>
+      ) : (
+        <>
+          <div>
+            <label className="settings-label">API Key</label>
+            <input
+              type="password"
+              value={active.apiKey}
+              onChange={(e) => updateAIProvider(active.id, { apiKey: e.target.value })}
+              className="settings-input"
+              placeholder="sk-..."
+            />
+          </div>
+
+          <div>
+            <label className="settings-label">模型名称</label>
+            <input
+              type="text"
+              value={active.model}
+              onChange={(e) => updateAIProvider(active.id, { model: e.target.value })}
+              className="settings-input"
+              placeholder={DEFAULT_MODELS[active.type]}
+            />
+          </div>
+
+          {active.type === 'openai-compatible' && (
+            <div>
+              <label className="settings-label">Base URL</label>
+              <input
+                type="text"
+                value={active.baseUrl ?? ''}
+                onChange={(e) => updateAIProvider(active.id, { baseUrl: e.target.value })}
+                placeholder="https://api.example.com/v1"
+                className="settings-input"
+              />
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex items-center justify-between">

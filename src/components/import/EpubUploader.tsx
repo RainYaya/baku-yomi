@@ -3,7 +3,7 @@ import { useEpubParser } from '../../hooks/useEpubParser';
 import { FiUpload } from 'react-icons/fi';
 
 export function EpubUploader() {
-  const { parseFile, parsing, error } = useEpubParser();
+  const { parseFile, parsing, error, status } = useEpubParser();
   const [dragOver, setDragOver] = useState(false);
 
   const handleFile = useCallback(
@@ -52,6 +52,7 @@ export function EpubUploader() {
         onDragLeave={() => setDragOver(false)}
         onClick={() => document.getElementById('epub-input')?.click()}
         className="uploader-dropzone"
+        data-import-state={status}
         style={{
           borderColor: dragOver ? 'var(--accent)' : 'var(--line)',
         }}

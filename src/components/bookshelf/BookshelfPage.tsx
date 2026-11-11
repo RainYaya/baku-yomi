@@ -3,20 +3,37 @@ import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from './BookCard';
+import { ThemeToggle } from '../../theme/ThemeToggle';
+import {
+  FiBookOpen,
+  FiSearch,
+  FiSettings,
+  FiUpload,
+} from 'react-icons/fi';
 
 type SortBy = 'lastImported' | 'title' | 'progress';
 
 export function BookshelfPage() {
   const books = useBookStore((s) => s.books);
+  const currentBookId = useBookStore((s) => s.currentBookId);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
   const getLastChapterIndexForBook = useBookStore((s) => s.getLastChapterIndexForBook);
   const readingProgress = useBookStore((s) => s.readingProgress);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
-  const { parseFile, parsing } = useEpubParser();
+  const openSettings = useUIStore((s) => s.openSettings);
+  const { parseFile, parsing, status } = useEpubParser();
 
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('lastImported');
+
+  const totalPairs = useMemo(
+    () => books.reduce(
+      (sum, book) => sum + book.chapters.reduce((count, chapter) => count + chapter.pairs.length, 0),
+      0
+    ),
+    [books]
+  );
 
   const filteredBooks = useMemo(() => {
     const lowerQuery = query.trim().toLowerCase();
@@ -63,60 +80,143 @@ export function BookshelfPage() {
   };
 
   return (
-    <section className="bookshelf-page">
-      <header className="bookshelf-toolbar">
-        <div className="bookshelf-toolbar-left">
-          <div className="bookshelf-kicker">LIBRARY</div>
-          <div>
-            <h2 className="bookshelf-heading">书架</h2>
-            <span className="bookshelf-count">共 {books.length} 本</span>
-          </div>
-        </div>
+    <section className="shelf-app">
+      <header className="shelf-topbar">
+        <span className="shelf-brand">baku-yomi</span>
+        <span className="shelf-divider" aria-hidden="true" />
+        <span className="shelf-crumb">書架 · 书架</span>
 
-        <div className="bookshelf-toolbar-right">
-          <input
-            className="settings-input"
-            style={{ minWidth: 220 }}
-            placeholder="搜索书名 / 作者"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-
-          <select
-            className="settings-input"
-            style={{ width: 150 }}
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-          >
-            <option value="lastImported">按导入时间</option>
-            <option value="title">按书名</option>
-            <option value="progress">按阅读进度</option>
-          </select>
-
-          <label className="btn btn-primary cursor-pointer">
-            {parsing ? '导入中...' : '导入 EPUB'}
-            <input type="file" accept=".epub" onChange={handleImport} style={{ display: 'none' }} />
+        <div className="shelf-top-right">
+          <label className="shelf-search">
+            <FiSearch size={13} aria-hidden="true" />
+            <input
+              placeholder="搜索书名 / 作者"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="搜索书名或作者"
+            />
           </label>
+
+          <label className="shelf-btn" data-import-state={status}>
+            <FiUpload size={13} aria-hidden="true" />
+            {parsing ? '导入中…' : '导入 EPUB'}
+            <input
+              type="file"
+              accept=".epub"
+              onChange={handleImport}
+              style={{ display: 'none' }}
+            />
+          </label>
+
+          <button
+            className="shelf-icon-btn"
+            onClick={openSettings}
+            title="打开设置"
+            aria-label="打开设置"
+          >
+            <FiSettings size={15} />
+          </button>
+          <ThemeToggle className="shelf-icon-btn" />
         </div>
       </header>
 
-      {filteredBooks.length === 0 ? (
-        <div className="bookshelf-empty">
-          <p>{books.length === 0 ? '你的书架还是空的，先导入第一本 EPUB 吧。' : '没有匹配的书，换个关键词试试。'}</p>
-          {books.length === 0 && (
-            <label className="btn btn-primary cursor-pointer">
-              {parsing ? '导入中...' : '导入 EPUB'}
-              <input type="file" accept=".epub" onChange={handleImport} style={{ display: 'none' }} />
+      <div className="shelf-shell">
+        <aside className="shelf-rail">
+          <div className="shelf-rail-head">
+            <span className="shelf-rail-kicker">書架</span>
+            <h2 className="shelf-rail-title">我的书架</h2>
+            <p className="shelf-rail-sub">
+              {books.length} 本 · {totalPairs} 句
+            </p>
+          </div>
+
+          <div className="shelf-rail-section">书籍</div>
+          <nav className="shelf-nav" aria-label="书籍">
+            {books.length === 0 ? (
+              <p className="shelf-rail-sub" style={{ padding: '0 8px' }}>
+                还没有导入书籍
+              </p>
+            ) : (
+              books.map((book) => (
+                <button
+                  key={book.id}
+                  className={`shelf-nav-btn${book.id === currentBookId ? ' active' : ''}`}
+                  onClick={() => openBook(book.id)}
+                  title={book.title}
+                >
+                  <FiBookOpen size={13} aria-hidden="true" />
+                  <span className="truncate">{book.title}</span>
+                  <span className="shelf-nav-count">{book.chapters.length}</span>
+                </button>
+              ))
+            )}
+          </nav>
+
+          <div className="shelf-rail-foot">
+            <label className="shelf-btn" data-import-state={status}>
+              <FiUpload size={13} aria-hidden="true" />
+              {parsing ? '导入中…' : '导入 EPUB'}
+              <input
+                type="file"
+                accept=".epub"
+                onChange={handleImport}
+                style={{ display: 'none' }}
+              />
             </label>
+          </div>
+        </aside>
+
+        <main className="shelf-main">
+          <div className="shelf-title-row">
+            <h1>书架</h1>
+            <span className="shelf-title-meta">
+              共 {books.length} 本 · {totalPairs} 句
+            </span>
+            <div className="right">
+              <label className="shelf-sort">
+                <span>排序</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  aria-label="排序方式"
+                >
+                  <option value="lastImported">导入时间</option>
+                  <option value="title">书名</option>
+                  <option value="progress">阅读进度</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {filteredBooks.length === 0 ? (
+            <div className="shelf-empty">
+              <p>
+                {books.length === 0
+                  ? '你的书架还是空的，先导入第一本 EPUB 吧。'
+                  : '没有匹配的书，换个关键词试试。'}
+              </p>
+              {books.length === 0 && (
+                <label className="shelf-btn primary" data-import-state={status}>
+                  <FiUpload size={13} aria-hidden="true" />
+                  {parsing ? '导入中…' : '导入 EPUB'}
+                  <input
+                    type="file"
+                    accept=".epub"
+                    onChange={handleImport}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div className="bookshelf-grid">
+              {filteredBooks.map((book) => (
+                <BookCard key={book.id} book={book} onOpen={() => openBook(book.id)} />
+              ))}
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="bookshelf-grid">
-          {filteredBooks.map((book) => (
-            <BookCard key={book.id} book={book} onOpen={() => openBook(book.id)} />
-          ))}
-        </div>
-      )}
+        </main>
+      </div>
     </section>
   );
 }

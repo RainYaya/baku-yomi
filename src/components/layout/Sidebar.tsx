@@ -16,7 +16,7 @@ export function Sidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const currentView = useUIStore((s) => s.currentView);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
-  const { parseFile, parsing } = useEpubParser();
+  const { parseFile, parsing, status } = useEpubParser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentBook = books.find((b) => b.id === currentBookId) ?? null;
@@ -43,7 +43,7 @@ export function Sidebar() {
       <div className="app-sidebar-inner">
         <div className="app-sidebar-section">
           <div className="app-sidebar-heading-row">
-            <h2 className="app-sidebar-heading">LIBRARY</h2>
+            <h2 className="app-sidebar-heading">書架</h2>
             <input
               ref={fileInputRef}
               type="file"
@@ -57,14 +57,16 @@ export function Sidebar() {
             onClick={() => fileInputRef.current?.click()}
             disabled={parsing}
             className="app-mini-action"
+            data-import-state={status}
             title="导入书籍"
+            aria-label="导入 EPUB 书籍"
           >
             {parsing ? (
               <div className="app-spinner" />
             ) : (
               <>
                 <FiPlus size={14} />
-                IMPORT
+                导入
               </>
             )}
           </button>
@@ -81,7 +83,7 @@ export function Sidebar() {
         </div>
 
         <div className="app-sidebar-section">
-          <div className="app-sidebar-label">BOOKS</div>
+          <div className="app-sidebar-label">本書</div>
         {books.length === 0 ? (
           <p className="app-sidebar-empty">
             点击 + 导入书籍
@@ -106,6 +108,7 @@ export function Sidebar() {
                   onClick={() => removeBook(book.id)}
                     className="app-inline-danger"
                     title="删除"
+                    aria-label={`删除《${book.title}》`}
                 >
                   <FiTrash2 size={14} />
                 </button>
@@ -118,7 +121,7 @@ export function Sidebar() {
 
       {currentBook && currentBook.chapters.length > 0 && (
         <div className="app-sidebar-section app-sidebar-footer">
-          <div className="app-sidebar-label">CHAPTERS</div>
+          <div className="app-sidebar-label">章</div>
           <ul className="app-sidebar-list">
               {currentBook.chapters.map((chapter, idx) => {
                 const progress = readingProgress[chapter.id] ?? 0;

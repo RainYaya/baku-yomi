@@ -1,38 +1,17 @@
 import { useEffect, type ReactNode } from 'react';
-import { KEY_MAP, ThemeContext, applyBodyClass, useThemeStore } from './themeStore';
-import { ThemeOverlays } from './ThemeOverlays';
+import { ThemeContext, applyBodyClass, useThemeStore } from './themeStore';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const mode = useThemeStore((state) => state.mode);
   const setMode = useThemeStore((state) => state.setMode);
+  const toggleMode = useThemeStore((state) => state.toggleMode);
 
   useEffect(() => {
     applyBodyClass(mode);
   }, [mode]);
 
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement;
-      const tag = target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-      const nextMode = KEY_MAP[event.key.toLowerCase()];
-      if (nextMode) {
-        // Defer so other handlers (e.g. ReadingView's auto-read on 'r')
-        // can call preventDefault first
-        setTimeout(() => {
-          if (!event.defaultPrevented) setMode(nextMode);
-        }, 0);
-      }
-    }
-
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [setMode]);
-
   return (
-    <ThemeContext.Provider value={{ mode, setMode }}>
-      <ThemeOverlays />
+    <ThemeContext.Provider value={{ mode, setMode, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );

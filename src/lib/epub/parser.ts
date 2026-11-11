@@ -29,11 +29,25 @@ function flattenToc(toc: TocEntry[]): TocEntry[] {
 /** Safely extract a plain string from metadata values that may be objects like {_, $} */
 function extractText(value: unknown): string | null {
   if (value == null) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object' && '_' in (value as Record<string, unknown>)) {
-    return String((value as Record<string, unknown>)._);
+  if (typeof value === 'string') return value.trim() || null;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const text = extractText(item);
+      if (text) return text;
+    }
+    return null;
   }
-  return String(value);
+  if (typeof value === 'object') {
+    // EPUB metadata comes in several shapes: { _: 'text' } from XML,
+    // { name }, { contributor }, or a nested array. Falling through to
+    // String(value) used to store the literal "[object Object]" as the author.
+    const record = value as Record<string, unknown>;
+    return extractText(
+      record._ ?? record.name ?? record.contributor ?? record.value ?? record['#text']
+    );
+  }
+  return null;
 }
 
 /** Extract creator name from metadata.creator which is an array of {contributor, fileAs, role} */

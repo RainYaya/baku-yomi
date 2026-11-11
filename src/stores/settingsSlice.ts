@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AIProviderConfig, AIProviderType } from '../types';
+import { DEFAULT_MODELS } from '../types';
+import { createDebouncedStorage } from '../lib/debouncedStorage';
 
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
@@ -48,10 +50,10 @@ interface SettingsState {
 
 const makeProvider = (id: string, type: AIProviderType = 'openai'): AIProviderProfile => ({
   id,
-  name: `供应商 ${id.slice(-4)}`,
+  name: type === 'bilibili-free' ? 'B站免费' : `供应商 ${id.slice(-4)}`,
   type,
   apiKey: '',
-  model: type === 'anthropic' ? 'claude-sonnet-4-20250514' : type === 'google' ? 'gemini-2.0-flash' : 'gpt-4o',
+  model: DEFAULT_MODELS[type],
   enabled: true,
 });
 
@@ -65,16 +67,10 @@ const FALLBACK_AI_PROVIDER: AIProviderConfig = {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
-      aiProviders: [
-        {
-          id: DEFAULT_PROVIDER_ID,
-          name: '默认供应商',
-          type: 'openai',
-          apiKey: '',
-          model: 'gpt-4o',
-          enabled: true,
-        },
-      ],
+      // A fresh install must work with zero configuration: the keyless
+      // provider is the whole point of shipping it. Anyone who wants a
+      // stronger model adds their own provider in settings.
+      aiProviders: [makeProvider(DEFAULT_PROVIDER_ID, 'bilibili-free')],
       activeAIProviderId: DEFAULT_PROVIDER_ID,
       ttsProvider: 'voicevox' as TTSProviderType,
       blindMode: false,
@@ -162,14 +158,28 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'settings-store',
-      version: 2,
-      migrate: (persistedState: unknown) => {
+      version: 3,
+      // API key / slider edits can fire rapidly; coalesce the writes.
+      storage: createJSONStorage(() => createDebouncedStorage()),
+      migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as {
           aiProvider?: AIProviderConfig;
           aiProviders?: AIProviderProfile[];
           activeAIProviderId?: string;
           [k: string]: unknown;
         };
+
+        // v2 -> v3: the keyless provider became the default. Anyone still on
+        // the old default — an `openai` provider with an empty key, which can
+        // only ever fail — is moved onto it instead of being left with a
+        // setup that looks configured but errors on every request.
+        if (version < 3 && state.aiProviders && state.aiProviders.length > 0) {
+          const providers = state.aiProviders.map((provider) => {
+            const unusable = provider.type === 'openai' && !provider.apiKey.trim();
+            return unusable ? { ...makeProvider(provider.id, 'bilibili-free'), name: 'B站免费' } : provider;
+          });
+          return { ...state, aiProviders: providers };
+        }
 
         if (state.aiProviders && state.aiProviders.length > 0) {
           return state;

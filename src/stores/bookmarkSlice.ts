@@ -75,6 +75,20 @@ export const useBookmarkStore = create<BookmarkState>()(
       setScrollToBookmarkId: (id) =>
         set({ scrollToBookmarkId: id }),
     }),
-    { name: 'baku-yomi-bookmarks' }
+    {
+      name: 'baku-yomi-bookmarks',
+      // `scrollToBookmarkId` is a transient cross-component command, not
+      // durable data. Persisting it would replay a stale jump after reload.
+      partialize: (state) => ({ bookmarks: state.bookmarks }),
+      // Older snapshots may still contain `scrollToBookmarkId`; ignore it
+      // when rehydrating so a stale command never runs.
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<BookmarkState> | undefined;
+        return {
+          ...current,
+          bookmarks: saved?.bookmarks ?? current.bookmarks,
+        };
+      },
+    }
   )
 );

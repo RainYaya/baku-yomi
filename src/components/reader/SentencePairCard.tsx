@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { SentencePair as SentencePairType } from '../../types';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { usePracticeStore } from '../../stores/practiceSlice';
@@ -9,12 +9,18 @@ import {
   subscribeVoicevoxPlayback,
   toggleVoicevoxPause,
 } from '../../lib/tts/voicevox';
-import { FiCheck, FiPause, FiPlay } from 'react-icons/fi';
+import { FiPause, FiPlay } from 'react-icons/fi';
+import {
+  idlePlaybackView,
+  type TtsPlaybackView,
+} from '../../machines/tts';
 
 interface Props {
   pair: SentencePairType;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (pairId: string, isSelected: boolean) => void;
+  onPractice?: (pairId: string) => void;
+  onExplain?: (pairId: string) => void;
 }
 
 function JapaneseText({
@@ -62,16 +68,24 @@ function JapaneseText({
   ]);
 
   return (
-    <p className={className} style={style}>
+    <p
+      className={className}
+      style={style}
+      data-pair-text
+      data-pair-length={pair.japanese.length}
+    >
       {renderedContent}
     </p>
   );
 }
 
-export const SentencePairCard = forwardRef<HTMLElement, Props>(function SentencePairCard(
-  { pair, isSelected, onSelect },
-  ref
-) {
+function SentencePairCardComponent({
+  pair,
+  isSelected,
+  onSelect,
+  onPractice,
+  onExplain,
+}: Props) {
   const hasChinese = pair.chinese.trim().length > 0;
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
@@ -82,36 +96,37 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
   const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
   const voicevoxPitch = useSettingsStore((s) => s.voicevoxPitch);
   const voicevoxVolume = useSettingsStore((s) => s.voicevoxVolume);
-  const [isActiveAudio, setIsActiveAudio] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [playback, setPlayback] =
+    useState<TtsPlaybackView>(idlePlaybackView);
+  const isActiveAudio = playback.status !== 'idle';
+  const isPlaying = playback.isPlaying;
+  const isLoadingAudio = playback.isLoading;
+  const audioStatus = playback.status;
+  const currentTime = playback.currentTime;
+  const duration = playback.duration;
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLElement>) => {
+    // `handleCardSelect` ignores clicks that immediately follow a text
+    // selection. On touch, the native selection can survive a tap much longer
+    // than with a mouse, so also ignore taps on the selected text itself —
+    // but still allow tapping the card's padding/number to select the card.
+    const target = e.target as HTMLElement;
+    const clickedText = Boolean(target.closest('[data-pair-text]'));
     const selectedText = window.getSelection()?.toString().trim();
-    if (selectedText) return;
-    onSelect();
+    if (clickedText && selectedText) return;
+    onSelect(pair.id, isSelected);
   };
 
   useEffect(() => {
-    const unsubscribe = subscribeVoicevoxPlayback((state) => {
-      const isMine = state.pairId === pair.id;
-      setIsActiveAudio(isMine);
-      setIsPlaying(isMine && state.isPlaying);
-      setIsLoadingAudio(isMine && state.isLoading);
-      setCurrentTime(isMine ? state.currentTime : 0);
-      setDuration(isMine ? state.duration : 0);
+    return subscribeVoicevoxPlayback((state) => {
+      setPlayback(state.pairId === pair.id ? state : idlePlaybackView);
     });
-
-    return unsubscribe;
   }, [pair.id]);
 
   const handlePlayToggle = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
 
-    if (isActiveAudio) {
-      toggleVoicevoxPause();
+    if (isActiveAudio && toggleVoicevoxPause()) {
       return;
     }
 
@@ -128,84 +143,96 @@ export const SentencePairCard = forwardRef<HTMLElement, Props>(function Sentence
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    const next = Number(e.target.value);
-    seekVoicevox(next);
+    seekVoicevox(Number(e.target.value));
   };
 
   return (
     <article
-      ref={ref}
       data-pair-id={pair.id}
-      className="reader-sentence-card group relative transition-all duration-200"
-      style={{
-        borderBottom: '1px solid var(--border-light)',
-        padding: '1.25rem 0',
-        backgroundColor: isSelected ? 'var(--accent-subtle)' : 'transparent',
-        borderRadius: isSelected ? '6px' : '0',
-      }}
+      data-selected={isSelected ? 'true' : 'false'}
+      className={`pair${isSelected ? ' selected' : ''}`}
       onClick={handleClick}
     >
-      {isSelected && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l"
-          style={{ backgroundColor: 'var(--accent-primary)' }}
-        />
-      )}
+      <span className="num">{pair.pairIndex + 1}</span>
 
       {hasWork && !isSelected && (
-        <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-30">
-          <FiCheck size={16} style={{ color: 'var(--accent-primary)' }} />
-        </div>
+        <span className="pair-done" title="这一句已经练过" aria-hidden="true" />
       )}
 
+      {/* Playback sits in the number gutter; it never floats over the text. */}
       <div
-        className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2"
+        className="pair-audio"
+        data-active={isActiveAudio}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={handlePlayToggle}
           disabled={isLoadingAudio}
           className="mini-audio-button"
-          title={isActiveAudio ? (isPlaying ? '暂停' : '继续播放') : '播放日语原文'}
+          data-tts-state={audioStatus}
+          title={
+            audioStatus === 'error'
+              ? '重试播放'
+              : isActiveAudio
+                ? isPlaying
+                  ? '暂停'
+                  : '继续播放'
+                : '播放日语原文'
+          }
         >
-          {isActiveAudio && isPlaying ? <FiPause size={12} /> : <FiPlay size={12} />}
+          {isActiveAudio && isPlaying ? <FiPause size={13} /> : <FiPlay size={13} />}
         </button>
-
-        <div className={`mini-audio-progress ${isActiveAudio ? 'active' : ''}`}>
-          <input
-            type="range"
-            min={0}
-            max={Math.max(duration, 0.1)}
-            step={0.01}
-            value={Math.min(currentTime, duration || 0)}
-            onChange={handleSeek}
-            className="mini-audio-range"
-            title="调整播放进度"
-            disabled={!isActiveAudio}
-          />
-          <span
-            className="mini-audio-fill"
-            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
-          />
-        </div>
       </div>
 
-      <div className="reader-sentence-text">
-        <JapaneseText pair={pair} className="text-reading mb-2" style={{ lineHeight: '1.9' }} />
+      <div className="pair-text">
+        <JapaneseText pair={pair} className="ja" />
 
-        {hasChinese && (
-          <div
-            style={{
-              paddingLeft: '1.25rem',
-              borderLeft: '2px solid var(--accent-subtle)',
-            }}
+        {hasChinese && <p className="zh">{pair.chinese}</p>}
+      </div>
+
+      {/* A 2px progress line at the card edge, not a bar across the sentence. */}
+      <div
+        className={`pair-audio-track${isActiveAudio ? ' active' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span
+          className="pair-audio-fill"
+          style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+        />
+        <input
+          type="range"
+          min={0}
+          max={Math.max(duration, 0.1)}
+          step={0.01}
+          value={Math.min(currentTime, duration || 0)}
+          onChange={handleSeek}
+          className="pair-audio-range"
+          title="调整播放进度"
+          disabled={!isActiveAudio}
+          aria-label="调整播放进度"
+        />
+      </div>
+
+      {isSelected && (
+        <div className="pair-actions" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="paper-chip"
+            onClick={() => onPractice?.(pair.id)}
+            title="在句内展开练习（P）"
           >
-            <p className="text-reading" style={{ fontSize: '0.9em', opacity: 0.65 }}>
-              {pair.chinese}
-            </p>
-          </div>
-        )}
-      </div>
+            練習 <kbd>P</kbd>
+          </button>
+          <button
+            className="paper-chip"
+            onClick={() => onExplain?.(pair.id)}
+            title="在句内看讲解（E）"
+          >
+            講解 <kbd>E</kbd>
+          </button>
+        </div>
+      )}
     </article>
   );
-});
+}
+
+export const SentencePairCard = memo(SentencePairCardComponent);

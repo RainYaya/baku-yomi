@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { FiBookOpen, FiFeather, FiLayers, FiMoon, FiX } from 'react-icons/fi';
 import guideMarkdown from '../../../docs/welcome-guide.md?raw';
+import { useMachine } from '../../machines/react';
+import { welcomeMachine } from '../../machines/welcome';
+import { registerKeyboardHandler } from '../../lib/keyboard';
 
 const GUIDE_STORAGE_KEY = 'baku-yomi-welcome-guide-seen-v1';
 
@@ -99,7 +102,7 @@ function getSectionEyebrow(title: string): string {
   if (title.includes('导入')) return 'Import';
   if (title.includes('阅读') || title.includes('操作')) return 'Navigate';
   if (title.includes('练习')) return 'Practice';
-  if (title.includes('主题') || title.includes('快捷键')) return 'Atmosphere';
+  if (title.includes('主题') || title.includes('快捷键')) return 'Theme';
   return 'Guide';
 }
 
@@ -111,8 +114,7 @@ function getSectionIcon(title: string): ReactNode {
 }
 
 export function WelcomeGuide() {
-  const [ready, setReady] = useState(false);
-  const [open, setOpen] = useState(false);
+  const { state, send } = useMachine(welcomeMachine, { debugId: 'welcome' });
   const guide = useMemo(() => parseGuide(guideMarkdown), []);
 
   const dismissGuide = useCallback(() => {
@@ -121,40 +123,38 @@ export function WelcomeGuide() {
     } catch {
       // Ignore storage write failures and just close the guide.
     }
-    setOpen(false);
-  }, []);
+    send({ type: 'DISMISS' });
+  }, [send]);
 
   useEffect(() => {
     try {
-      const seen = window.localStorage.getItem(GUIDE_STORAGE_KEY);
-      setOpen(seen !== 'true');
+      const seen = window.localStorage.getItem(GUIDE_STORAGE_KEY) === 'true';
+      send({ type: 'HYDRATED', seen });
     } catch {
-      setOpen(true);
-    } finally {
-      setReady(true);
+      send({ type: 'HYDRATED', seen: false });
     }
-  }, []);
+  }, [send]);
 
   useEffect(() => {
-    if (!open) return;
+    if (state.status !== 'visible') return;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        dismissGuide();
-      }
-    };
+    return registerKeyboardHandler('welcome', 100, (event) => {
+      if (event.key !== 'Escape') return false;
+      dismissGuide();
+      return true;
+    });
+  }, [dismissGuide, state.status]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dismissGuide, open]);
-
-  if (!ready || !open) {
+  if (state.status !== 'visible') {
     return null;
   }
 
   return (
-    <div className="welcome-guide-overlay" onClick={dismissGuide}>
+    <div
+      className="welcome-guide-overlay"
+      data-welcome-state={state.status}
+      onClick={dismissGuide}
+    >
       <section
         className="welcome-guide-dialog animate-fade-in"
         onClick={(event) => event.stopPropagation()}

@@ -2,49 +2,43 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createContext, useContext } from 'react';
 
-export type ThemeMode = 'night' | 'midnight' | 'day' | 'sunny' | 'rain' | 'snow';
+/**
+ * Two themes, not six weather moods. `paper` is the looseleaf desk in
+ * daylight; `night` is the same desk under a lamp. Both are the same
+ * structure, so switching never changes where anything lives.
+ */
+export type ThemeMode = 'paper' | 'night';
 
-export const MODES: ThemeMode[] = ['night', 'midnight', 'day', 'sunny', 'rain', 'snow'];
+export const MODES: ThemeMode[] = ['paper', 'night'];
 
 export const MODE_LABELS: Record<ThemeMode, string> = {
-  night: 'Night',
-  midnight: 'Moonlight',
-  day: 'Day',
-  sunny: 'Sunny',
-  rain: 'Rain',
-  snow: 'Snow',
-};
-
-export const MODE_SHORTCUTS: Record<ThemeMode, string> = {
-  night: 'N',
-  midnight: 'M',
-  day: 'D',
-  sunny: 'S',
-  rain: 'R',
-  snow: 'W',
-};
-
-export const KEY_MAP: Record<string, ThemeMode> = {
-  n: 'night',
-  m: 'midnight',
-  d: 'day',
-  s: 'sunny',
-  r: 'rain',
-  w: 'snow',
+  paper: '纸页',
+  night: '夜读',
 };
 
 export interface ThemeState {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      mode: 'snow',
+      mode: 'paper',
       setMode: (mode) => set({ mode }),
+      toggleMode: () => set((state) => ({ mode: state.mode === 'paper' ? 'night' : 'paper' })),
     }),
-    { name: 'baku-yomi-theme' }
+    {
+      name: 'baku-yomi-theme',
+      version: 2,
+      // The old six-theme setting may still be in localStorage. Anything
+      // that was dark stays dark; everything else becomes paper.
+      migrate: (persisted) => {
+        const previous = (persisted as { mode?: string } | undefined)?.mode;
+        return { mode: previous === 'night' || previous === 'midnight' ? 'night' : 'paper' } as ThemeState;
+      },
+    }
   )
 );
 
@@ -58,25 +52,7 @@ export function useTheme() {
 
 export function applyBodyClass(mode: ThemeMode) {
   const body = document.body;
-  body.classList.remove('midnight', 'light', 'sunny', 'rain', 'snow');
-
-  switch (mode) {
-    case 'night':
-      break;
-    case 'midnight':
-      body.classList.add('midnight');
-      break;
-    case 'day':
-      body.classList.add('light');
-      break;
-    case 'sunny':
-      body.classList.add('sunny');
-      break;
-    case 'rain':
-      body.classList.add('rain');
-      break;
-    case 'snow':
-      body.classList.add('snow');
-      break;
-  }
+  body.classList.remove('paper', 'night');
+  body.classList.add(mode);
+  body.dataset.theme = mode;
 }

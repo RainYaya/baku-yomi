@@ -89,9 +89,14 @@ export async function analyzeTranslation(
   const data = await response.json();
   const rawMarkdown: string = data.text;
 
-  // Extract score
-  const scoreMatch = rawMarkdown.match(/【综合评分】\s*(\d+)/);
-  const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 0;
+  // Extract score. The keyless model sometimes translates the section heading
+  // (総合評価 / 综合评分), so accept either and fall back to N/100.
+  const scoreMatch =
+    rawMarkdown.match(/【[^】]*(?:评分|評価)[^】]*】\s*(\d{1,3})/) ??
+    rawMarkdown.match(/(\d{1,3})\s*\/\s*100/);
+  const score = scoreMatch
+    ? Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10)))
+    : 0;
 
   return {
     pairId,

@@ -1,21 +1,18 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AnalysisResult } from '../types';
+import { createDebouncedStorage } from '../lib/debouncedStorage';
 
 interface PracticeState {
   translations: Record<string, string>;
   analyses: Record<string, AnalysisResult>;
   notes: Record<string, string>;
   hints: Record<string, string>;
-  analyzingPairId: string | null;
-  hintLoadingId: string | null;
 
   setTranslation: (pairId: string, text: string) => void;
   setAnalysis: (pairId: string, result: AnalysisResult) => void;
-  setAnalyzing: (pairId: string | null) => void;
   setNote: (pairId: string, text: string) => void;
   setHint: (pairId: string, text: string) => void;
-  setHintLoading: (pairId: string | null) => void;
   getTranslation: (pairId: string) => string;
   getAnalysis: (pairId: string) => AnalysisResult | null;
   clearPracticeData: (bookId: string) => void;
@@ -28,8 +25,6 @@ export const usePracticeStore = create<PracticeState>()(
       analyses: {},
       notes: {},
       hints: {},
-      analyzingPairId: null,
-      hintLoadingId: null,
 
       setTranslation: (pairId, text) =>
         set((state) => ({
@@ -39,11 +34,7 @@ export const usePracticeStore = create<PracticeState>()(
       setAnalysis: (pairId, result) =>
         set((state) => ({
           analyses: { ...state.analyses, [pairId]: result },
-          analyzingPairId: null,
         })),
-
-      setAnalyzing: (pairId) =>
-        set({ analyzingPairId: pairId }),
 
       setNote: (pairId, text) =>
         set((state) => ({
@@ -53,11 +44,7 @@ export const usePracticeStore = create<PracticeState>()(
       setHint: (pairId, text) =>
         set((state) => ({
           hints: { ...state.hints, [pairId]: text },
-          hintLoadingId: null,
         })),
-
-      setHintLoading: (pairId) =>
-        set({ hintLoadingId: pairId }),
 
       getTranslation: (pairId) => get().translations[pairId] ?? '',
 
@@ -66,6 +53,10 @@ export const usePracticeStore = create<PracticeState>()(
       clearPracticeData: (_bookId) =>
         set({ translations: {}, analyses: {}, notes: {}, hints: {} }),
     }),
-    { name: 'practice-store' }
+    {
+      name: 'practice-store',
+      // Typing in the composer updates this store on every keystroke.
+      storage: createJSONStorage(() => createDebouncedStorage()),
+    }
   )
 );

@@ -1,82 +1,83 @@
+import { useEffect, useRef } from 'react';
+import { FiX } from 'react-icons/fi';
+import { registerKeyboardHandler } from '../../lib/keyboard';
+
 interface Props {
   onClose: () => void;
 }
 
 const shortcuts = [
-  { keys: ['j'], desc: '选择下一句（Vim 模式）' },
-  { keys: ['k'], desc: '选择上一句（Vim 模式）' },
-  { keys: ['r'], desc: '开启 / 停止连续朗读' },
+  { keys: ['j'], desc: '下一句' },
+  { keys: ['k'], desc: '上一句' },
+  { keys: ['P'], desc: '在句内练习' },
+  { keys: ['E'], desc: '在句内看讲解' },
+  { keys: ['⇧', 'P'], desc: '打开整页练习桌' },
   { keys: ['gi'], desc: '进入输入框' },
-  { keys: ['Esc'], desc: '退出输入 / 关闭面板' },
+  { keys: ['r'], desc: '开启 / 停止连续朗读' },
+  { keys: ['Esc'], desc: '逐级返回' },
   { keys: ['?'], desc: '显示帮助' },
 ];
 
 export function ShortcutHelp({ onClose }: Props) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
+
+  useEffect(
+    () =>
+      registerKeyboardHandler('shortcut-help', 100, (event) => {
+        if (event.key === 'Escape' || event.key === '?') {
+          onClose();
+          return true;
+        }
+        return false;
+      }),
+    [onClose]
+  );
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in"
-      style={{ backgroundColor: 'rgba(45, 45, 45, 0.3)', backdropFilter: 'blur(2px)' }}
+      className="shortcut-backdrop"
+      data-help-state="open"
+      role="dialog"
+      aria-modal="true"
+      aria-label="快捷键"
       onClick={onClose}
     >
-      <div
-        className="w-full max-w-sm mx-4 p-6 animate-slide-up"
-        style={{
-          backgroundColor: 'var(--bg-paper)',
-          borderRadius: '6px',
-          boxShadow: '0 8px 32px rgba(44, 74, 110, 0.15)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h3
-            className="text-sm font-medium"
-            style={{
-              fontFamily: 'var(--font-ui)',
-              color: 'var(--ink-primary)',
-              letterSpacing: '0.08em',
-            }}
+      <div className="shortcut-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="shortcut-head">
+          <div>
+            <h3>快捷键</h3>
+            <span>阅读时随时可用</span>
+          </div>
+          <button
+            ref={closeRef}
+            className="shortcut-close"
+            onClick={onClose}
+            aria-label="关闭快捷键"
+            title="关闭"
           >
-            快捷键
-          </h3>
+            <FiX size={16} />
+          </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="shortcut-list">
           {shortcuts.map(({ keys, desc }) => (
-            <div key={desc} className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+            <div key={desc} className="shortcut-row">
+              <span className="shortcut-keys">
                 {keys.map((key, i) => (
-                  <span key={i}>
-                    <kbd
-                      className="px-2 py-1 text-xs"
-                      style={{
-                        fontFamily: 'monospace',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--ink-secondary)',
-                      }}
-                    >
-                      {key}
-                    </kbd>
-                    {i < keys.length - 1 && (
-                      <span className="text-xs mx-0.5 opacity-40">+</span>
-                    )}
-                  </span>
+                  <kbd key={i}>{key}</kbd>
                 ))}
-              </div>
-              <span className="text-sm" style={{ color: 'var(--ink-muted)' }}>
-                {desc}
               </span>
+              <span className="shortcut-desc">{desc}</span>
             </div>
           ))}
         </div>
 
-        <p
-          className="text-xs text-center mt-6 opacity-40"
-          style={{ fontFamily: 'var(--font-ui)' }}
-        >
-          按 <kbd className="px-1.5 py-0.5" style={{ border: '1px solid var(--border-color)', borderRadius: '2px' }}>?</kbd> 或{' '}
-          <kbd className="px-1.5 py-0.5" style={{ border: '1px solid var(--border-color)', borderRadius: '2px' }}>Esc</kbd> 关闭
+        <p className="shortcut-foot">
+          按 <kbd>?</kbd> 或 <kbd>Esc</kbd> 关闭
         </p>
       </div>
     </div>

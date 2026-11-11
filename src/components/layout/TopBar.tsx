@@ -9,12 +9,20 @@ export function TopBar() {
   const { toggleSidebar, openSettings, currentView } = useUIStore();
   const currentBook = useBookStore((s) => s.getCurrentBook());
   const currentChapter = useBookStore((s) => s.getCurrentChapter());
-  const getReadingProgress = useBookStore((s) => s.getReadingProgress);
+  const currentChapterId = currentChapter?.id ?? null;
+  const currentProgress = useBookStore((s) =>
+    currentChapterId ? s.readingProgress[currentChapterId] ?? 0 : 0
+  );
 
   const progressPct =
     currentChapter && currentChapter.pairs.length > 0
-      ? Math.round((getReadingProgress(currentChapter.id) / currentChapter.pairs.length) * 100)
+      ? Math.round((currentProgress / currentChapter.pairs.length) * 100)
       : 0;
+
+  const context =
+    currentView === 'bookshelf'
+      ? currentBook?.title ?? '书架'
+      : currentChapter?.title ?? '阅读';
 
   return (
     <header className="app-header">
@@ -24,56 +32,52 @@ export function TopBar() {
             onClick={toggleSidebar}
             className="app-icon-btn"
             title="切换侧栏"
+            aria-label="切换侧栏"
           >
             <FiMenu size={16} />
           </button>
 
-          <div>
-            <div className="app-logo">BAKU-YOMI</div>
-            <div className="app-context">
-              {currentView === 'bookshelf'
-                ? `LIBRARY / ${currentBook ? currentBook.title : 'EMPTY'}`
-                : `READER / ${currentChapter?.title || 'DOUBLE BACKTRANSLATION'}`}
-            </div>
+          <div className="app-brand-text">
+            <span className="app-logo">baku-yomi</span>
+            <span className="app-context">{context}</span>
           </div>
         </div>
 
         <div className="app-header-tools">
-          <div className="app-shortcuts">THEME N / M / D / S / R / W</div>
-          <ThemeIndicator />
+          <div className="font-controls" aria-label="字号">
+            <button
+              onClick={() => changeFontZoom(-1)}
+              className="font-control-btn"
+              title="缩小字号"
+              aria-label="缩小字号"
+            >
+              A−
+            </button>
+            <button
+              onClick={() => changeFontZoom(1)}
+              className="font-control-btn"
+              title="放大字号"
+              aria-label="放大字号"
+            >
+              A+
+            </button>
+          </div>
+
           {currentView === 'reader' && currentChapter && (
-            <span className="app-progress-indicator">
+            <span className="app-progress-indicator" title="本章阅读进度">
               {progressPct}%
             </span>
           )}
+
+          <ThemeIndicator />
+
           <button
             onClick={openSettings}
             className="app-icon-btn"
             title="打开设置"
+            aria-label="打开设置"
           >
             <FiSettings size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="app-header-sub">
-        <div className="app-sub-label">
-          {currentView === 'bookshelf'
-            ? 'quiet library surface'
-            : currentBook?.title || 'active reading session'}
-        </div>
-        <div className="font-controls">
-          <button
-            onClick={() => changeFontZoom(-1)}
-            className="font-control-btn"
-          >
-            A-
-          </button>
-          <button
-            onClick={() => changeFontZoom(1)}
-            className="font-control-btn"
-          >
-            A+
           </button>
         </div>
       </div>

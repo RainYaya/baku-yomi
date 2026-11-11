@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "start": "NODE_ENV=production node --env-file-if-exists=.env --import tsx server/index.ts",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

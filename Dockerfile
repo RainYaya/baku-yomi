@@ -14,6 +14,7 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/src/types ./src/types
+COPY --from=builder /app/src/lib/ai ./src/lib/ai
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
 COPY --from=builder /app/tsconfig*.json ./
 RUN pnpm install --frozen-lockfile --prod

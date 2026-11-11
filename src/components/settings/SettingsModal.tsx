@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/uiSlice';
 import { FiX } from 'react-icons/fi';
 import { AISettingsPanel } from './AISettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
+import { registerKeyboardHandler } from '../../lib/keyboard';
 
 type SettingsTab = 'ai' | 'voice';
 
@@ -10,12 +11,23 @@ export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('ai');
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+
+    return registerKeyboardHandler('settings', 100, (event) => {
+      if (event.key !== 'Escape') return false;
+      closeSettings();
+      return true;
+    });
+  }, [closeSettings, settingsOpen]);
+
   if (!settingsOpen) return null;
 
   return (
     <div className="settings-drawer-overlay" onClick={closeSettings}>
       <aside
         className="settings-drawer settings-drawer-enter"
+        data-settings-tab={activeTab}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="settings-drawer-header">
