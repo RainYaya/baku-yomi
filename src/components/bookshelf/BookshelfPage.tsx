@@ -3,9 +3,12 @@ import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from './BookCard';
+import { PasteTextDialog } from '../import/PasteTextDialog';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
   FiBookOpen,
+  FiClipboard,
+  FiEdit3,
   FiSearch,
   FiSettings,
   FiUpload,
@@ -26,6 +29,7 @@ export function BookshelfPage() {
 
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('lastImported');
+  const [pasteOpen, setPasteOpen] = useState(false);
 
   const totalPairs = useMemo(
     () => books.reduce(
@@ -82,7 +86,13 @@ export function BookshelfPage() {
   return (
     <section className="shelf-app">
       <header className="shelf-topbar">
-        <span className="shelf-brand">baku-yomi</span>
+        <button
+          className="shelf-brand shelf-brand-btn"
+          onClick={() => setCurrentView('home')}
+          title="回到桌面"
+        >
+          baku-yomi
+        </button>
         <span className="shelf-divider" aria-hidden="true" />
         <span className="shelf-crumb">書架 · 书架</span>
 
@@ -96,6 +106,24 @@ export function BookshelfPage() {
               aria-label="搜索书名或作者"
             />
           </label>
+
+          <button
+            className="shelf-btn"
+            onClick={() => setCurrentView('review')}
+            title="查看批改记录"
+          >
+            <FiClipboard size={13} aria-hidden="true" />
+            练习回顾
+          </button>
+
+          <button
+            className="shelf-btn"
+            onClick={() => setPasteOpen(true)}
+            title="粘贴文章或导入 TXT / Markdown"
+          >
+            <FiEdit3 size={13} aria-hidden="true" />
+            粘贴 / 文本
+          </button>
 
           <label className="shelf-btn" data-import-state={status}>
             <FiUpload size={13} aria-hidden="true" />
@@ -153,6 +181,14 @@ export function BookshelfPage() {
           </nav>
 
           <div className="shelf-rail-foot">
+            <button
+              className="shelf-btn"
+              onClick={() => setPasteOpen(true)}
+              title="粘贴文章或导入 TXT / Markdown"
+            >
+              <FiEdit3 size={13} aria-hidden="true" />
+              粘贴 / 文本
+            </button>
             <label className="shelf-btn" data-import-state={status}>
               <FiUpload size={13} aria-hidden="true" />
               {parsing ? '导入中…' : '导入 EPUB'}
@@ -196,16 +232,25 @@ export function BookshelfPage() {
                   : '没有匹配的书，换个关键词试试。'}
               </p>
               {books.length === 0 && (
-                <label className="shelf-btn primary" data-import-state={status}>
-                  <FiUpload size={13} aria-hidden="true" />
-                  {parsing ? '导入中…' : '导入 EPUB'}
-                  <input
-                    type="file"
-                    accept=".epub"
-                    onChange={handleImport}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+                <>
+                  <button
+                    className="shelf-btn primary"
+                    onClick={() => setPasteOpen(true)}
+                  >
+                    <FiEdit3 size={13} aria-hidden="true" />
+                    粘贴第一篇文章
+                  </button>
+                  <label className="shelf-btn" data-import-state={status}>
+                    <FiUpload size={13} aria-hidden="true" />
+                    {parsing ? '导入中…' : '导入 EPUB'}
+                    <input
+                      type="file"
+                      accept=".epub"
+                      onChange={handleImport}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </>
               )}
             </div>
           ) : (
@@ -217,6 +262,8 @@ export function BookshelfPage() {
           )}
         </main>
       </div>
+
+      <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
     </section>
   );
 }

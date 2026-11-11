@@ -3,6 +3,8 @@ import type { Book, Chapter } from '../../types';
 import { extractSentences } from './sentenceSplitter';
 import { buildPairs } from './pairBuilder';
 import { extractImmersiveTranslatePairs } from './immersiveTranslate';
+import { scopePairIds } from './pairId';
+import { createBookId } from '../id';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EpubFile = any;
@@ -65,12 +67,12 @@ function extractCreator(value: unknown): string | null {
 }
 
 /** Extract pairs from one or more HTML strings combined */
-function extractPairsFromHtml(htmlParts: string[], chapterIndex: number) {
+function extractPairsFromHtml(htmlParts: string[], chapterIndex: number, bookId: string) {
   const combined = htmlParts.join('\n');
-  return (
+  const pairs =
     extractImmersiveTranslatePairs(combined, chapterIndex) ??
-    buildPairs(extractSentences(combined), chapterIndex)
-  );
+    buildPairs(extractSentences(combined), chapterIndex);
+  return scopePairIds(pairs, bookId, chapterIndex);
 }
 
 /** Try to find a cover image URL from loaded spine HTML */
@@ -114,7 +116,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
   const author = extractCreator(metadata.creator) ?? 'Unknown';
   const description = extractText(metadata.description) ?? undefined;
   const publisher = extractText(metadata.publisher) ?? undefined;
-  const bookId = `book-${Date.now()}`;
+  const bookId = createBookId();
 
   const spine: { id: string; href: string }[] =
     epub.getSpine?.() ?? epub.spine ?? [];
@@ -184,7 +186,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
 
       if (htmlParts.length === 0) continue;
 
-      const pairs = extractPairsFromHtml(htmlParts, chapters.length);
+      const pairs = extractPairsFromHtml(htmlParts, chapters.length, bookId);
       if (pairs.length === 0) continue;
 
       chapters.push({
@@ -199,7 +201,7 @@ export async function parseEpubFile(file: File): Promise<Book> {
   // Fallback: if TOC produced nothing, fall back to spine-per-chapter
   if (chapters.length === 0) {
     for (const [spineId, html] of spineHtml) {
-      const pairs = extractPairsFromHtml([html], chapters.length);
+      const pairs = extractPairsFromHtml([html], chapters.length, bookId);
       if (pairs.length === 0) continue;
 
       const tocEntry = flatToc.find((t) => t.id === spineId);

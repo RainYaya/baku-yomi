@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppView = 'bookshelf' | 'reader';
+export type AppView = 'home' | 'bookshelf' | 'reader' | 'review';
 
 interface UIState {
   settingsOpen: boolean;
@@ -16,7 +16,7 @@ interface UIState {
 export const useUIStore = create<UIState>()((set) => ({
   settingsOpen: false,
   sidebarOpen: true,
-  currentView: 'bookshelf',
+  currentView: 'home',
 
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),

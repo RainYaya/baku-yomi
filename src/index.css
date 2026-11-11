@@ -1271,6 +1271,218 @@ select:focus {
   line-height: 1.7;
 }
 
+/* Settings → Data */
+.data-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.data-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.data-usage-number {
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-usage-number span {
+  font-size: 12px;
+  color: var(--mid);
+}
+
+.data-usage-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.data-usage-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+
+.data-usage-bar[data-warning='true'] .data-usage-fill {
+  background: var(--error-color);
+}
+
+.data-warning,
+.data-error {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--error-color);
+  margin: 0;
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.data-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.data-action:hover:not(:disabled) {
+  border-color: var(--mid);
+}
+
+.data-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.data-action-danger {
+  border-color: color-mix(in srgb, var(--error-color) 55%, transparent);
+  color: var(--error-color);
+}
+
+.data-icon-btn {
+  border: 0;
+  background: transparent;
+  color: var(--mid);
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: inline-flex;
+}
+
+.data-icon-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.data-confirm {
+  border: 1px solid color-mix(in srgb, var(--error-color) 45%, var(--line));
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--error-color) 7%, transparent);
+}
+
+.data-confirm p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.data-confirm p span {
+  display: block;
+  color: var(--mid);
+}
+
+.data-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Global storage pressure / write failure notice */
+.storage-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-paper);
+  color: var(--text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+
+.storage-notice[data-tone='error'] {
+  border-color: color-mix(in srgb, var(--error-color) 60%, var(--line));
+}
+
+.storage-notice[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.storage-notice p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.storage-notice p span {
+  color: var(--mid);
+}
+
+.storage-notice-action {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.storage-notice-action:hover {
+  border-color: var(--mid);
+}
+
+.storage-notice-close {
+  border: 0;
+  background: transparent;
+  color: var(--mid);
+  cursor: pointer;
+  padding: 3px;
+  display: inline-flex;
+}
+
+.storage-notice-close:hover {
+  color: var(--text);
+}
+
+@media (max-width: 520px) {
+  .storage-notice {
+    flex-wrap: wrap;
+  }
+
+  .storage-notice p {
+    flex: 1 1 100%;
+    order: 2;
+  }
+}
+
 .settings-mini-btn {
   padding: 7px 9px;
   font-size: 11px;

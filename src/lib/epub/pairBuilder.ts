@@ -52,6 +52,7 @@ export function buildPairs(
         japanese: current.text,
         japaneseHtml: current.html,
         chinese: next.text,
+        translationSource: 'imported',
         chapterIndex,
         pairIndex,
       });
@@ -67,6 +68,7 @@ export function buildPairs(
         japanese: next.text,
         japaneseHtml: next.html,
         chinese: current.text,
+        translationSource: 'imported',
         chapterIndex,
         pairIndex,
       });

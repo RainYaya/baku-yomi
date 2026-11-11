@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migrateBookmarkPairId } from '../lib/pairMigration';
 
 export const BOOKMARK_COLORS = [
   { id: 'red', label: '红色', bg: 'rgba(220, 38, 38, 0.25)', border: 'rgba(220, 38, 38, 0.5)', textColor: 'rgb(220, 38, 38)' },
@@ -77,9 +78,21 @@ export const useBookmarkStore = create<BookmarkState>()(
     }),
     {
       name: 'baku-yomi-bookmarks',
+      version: 1,
       // `scrollToBookmarkId` is a transient cross-component command, not
       // durable data. Persisting it would replay a stale jump after reload.
       partialize: (state) => ({ bookmarks: state.bookmarks }),
+      migrate: (persistedState: unknown, version: number) => {
+        const saved = persistedState as { bookmarks?: TextBookmark[] } | undefined;
+        if (!saved || version >= 1) return saved;
+        return {
+          ...saved,
+          bookmarks: (saved.bookmarks ?? []).map((bookmark) => ({
+            ...bookmark,
+            pairId: migrateBookmarkPairId(bookmark.chapterId, bookmark.pairId),
+          })),
+        };
+      },
       // Older snapshots may still contain `scrollToBookmarkId`; ignore it
       // when rehydrating so a stale command never runs.
       merge: (persisted, current) => {

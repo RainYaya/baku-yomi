@@ -53,6 +53,7 @@ export function InlinePracticeCard({
   const setNote = usePracticeStore((s) => s.setNote);
   const setHint = usePracticeStore((s) => s.setHint);
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
+  const setPairTranslationReviewed = useBookStore((s) => s.setPairTranslationReviewed);
   const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
   const { analyze } = useAnalysis();
 
@@ -150,6 +151,7 @@ export function InlinePracticeCard({
       {tab === 'explain' ? (
         <div className="expand-body expand-body-explain">
           <ExplainContent
+            pairId={pair.id}
             sentence={pair.japanese}
             fragment={fragment}
             onClose={onClose}
@@ -209,6 +211,17 @@ export function InlinePracticeCard({
               >
                 编辑译文
               </button>
+              {pair.translationSource === 'ai' && (
+                <button
+                  className="quiet-link"
+                  onClick={() =>
+                    setPairTranslationReviewed(pair.id, !pair.translationReviewed)
+                  }
+                  title="标记这句 AI 译文已经人工校对"
+                >
+                  {pair.translationReviewed ? '取消已校' : '标记已校'}
+                </button>
+              )}
               <button className="quiet-link" onClick={() => setShowNote(true)}>
                 笔记
               </button>

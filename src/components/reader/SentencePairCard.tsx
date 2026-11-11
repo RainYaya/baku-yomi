@@ -9,7 +9,7 @@ import {
   subscribeVoicevoxPlayback,
   toggleVoicevoxPause,
 } from '../../lib/tts/voicevox';
-import { FiPause, FiPlay } from 'react-icons/fi';
+import { FiPause, FiPlay, FiRefreshCw } from 'react-icons/fi';
 import {
   idlePlaybackView,
   type TtsPlaybackView,
@@ -21,6 +21,7 @@ interface Props {
   onSelect: (pairId: string, isSelected: boolean) => void;
   onPractice?: (pairId: string) => void;
   onExplain?: (pairId: string) => void;
+  onRetranslate?: (pairId: string) => Promise<void>;
 }
 
 function JapaneseText({
@@ -85,12 +86,16 @@ function SentencePairCardComponent({
   onSelect,
   onPractice,
   onExplain,
+  onRetranslate,
 }: Props) {
   const hasChinese = pair.chinese.trim().length > 0;
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
   const hasWork = translation.trim() || analysis || note.trim();
+  const [retranslating, setRetranslating] = useState(false);
+  const [retranslateError, setRetranslateError] = useState<string | null>(null);
+  const isAiTranslation = pair.translationSource === 'ai';
 
   const voicevoxSpeakerId = useSettingsStore((s) => s.voicevoxSpeakerId);
   const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
@@ -146,6 +151,19 @@ function SentencePairCardComponent({
     seekVoicevox(Number(e.target.value));
   };
 
+  const handleRetranslate = async () => {
+    if (!onRetranslate || retranslating) return;
+    setRetranslating(true);
+    setRetranslateError(null);
+    try {
+      await onRetranslate(pair.id);
+    } catch (error) {
+      setRetranslateError(error instanceof Error ? error.message : '重译失败，请重试。');
+    } finally {
+      setRetranslating(false);
+    }
+  };
+
   return (
     <article
       data-pair-id={pair.id}
@@ -187,7 +205,27 @@ function SentencePairCardComponent({
       <div className="pair-text">
         <JapaneseText pair={pair} className="ja" />
 
-        {hasChinese && <p className="zh">{pair.chinese}</p>}
+        {hasChinese && (
+          <p className="zh">
+            {isAiTranslation && (
+              <span
+                className="translation-badge"
+                data-reviewed={pair.translationReviewed ? 'true' : 'false'}
+                title={
+                  pair.translationReviewed
+                    ? 'AI 翻译，已人工校对'
+                    : 'AI 翻译，尚未校对'
+                }
+              >
+                {pair.translationReviewed ? 'AI 译 · 已校' : 'AI 译'}
+              </span>
+            )}
+            {pair.chinese}
+          </p>
+        )}
+        {retranslateError && (
+          <p className="pair-retranslate-error">{retranslateError}</p>
+        )}
       </div>
 
       {/* A 2px progress line at the card edge, not a bar across the sentence. */}
@@ -229,6 +267,16 @@ function SentencePairCardComponent({
           >
             講解 <kbd>E</kbd>
           </button>
+          {onRetranslate && (
+            <button
+              className="paper-chip"
+              onClick={() => void handleRetranslate()}
+              disabled={retranslating}
+              title="用 AI 重新翻译这一句"
+            >
+              <FiRefreshCw size={11} /> {retranslating ? '重译中' : '重译'}
+            </button>
+          )}
         </div>
       )}
     </article>

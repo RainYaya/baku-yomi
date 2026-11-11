@@ -129,18 +129,20 @@ export function BookCard({ book, onOpen }: Props) {
             <div className="bookshelf-stats">
               <span className="bookshelf-stat">
                 <FiLayers size={12} />
-                {book.chapters.length} 章
+                {book.chapters.length} {book.source?.kind === 'collection' ? '篇' : '章'}
               </span>
               <span className="bookshelf-stat">
                 <FiFileText size={12} />
                 {totalPairs} 句对
               </span>
+              {book.demo && <span className="bookshelf-stat">示例</span>}
               {progressPct > 0 && (
                 <span className="bookshelf-stat bookshelf-stat-accent">
                   {progressPct}%
                 </span>
               )}
             </div>
+
           </>
         )}
 
@@ -163,7 +165,11 @@ export function BookCard({ book, onOpen }: Props) {
             <div className="bookshelf-actions">
               <button className="bookshelf-btn-primary" onClick={onOpen}>
                 <FiPlay size={13} />
-                {progressPct > 0 ? '继续阅读' : '开始阅读'}
+                {book.source?.kind === 'collection' && book.chapters.length === 0
+                  ? '添加文章'
+                  : progressPct > 0
+                    ? '继续阅读'
+                    : '开始阅读'}
               </button>
               <button
                 className="bookshelf-btn-icon"

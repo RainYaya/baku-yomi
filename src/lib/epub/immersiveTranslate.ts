@@ -94,6 +94,7 @@ export function extractImmersiveTranslatePairs(
       japanese,
       japaneseHtml,
       chinese,
+      translationSource: 'imported',
       chapterIndex,
       pairIndex,
     });

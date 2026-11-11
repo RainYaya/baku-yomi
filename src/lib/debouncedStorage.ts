@@ -1,4 +1,5 @@
 import type { StateStorage } from 'zustand/middleware';
+import { STORAGE_ERROR_EVENT } from './storage';
 
 /**
  * Coalesces rapid persist writes into one `localStorage.setItem`.
@@ -20,6 +21,12 @@ export function createDebouncedStorage(delay = 300): StateStorage {
       window.localStorage.setItem(name, value);
     } catch {
       // Storage can be unavailable or full; the in-memory store still works.
+      // Surface it instead of silently losing the write.
+      if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent(STORAGE_ERROR_EVENT, { detail: { name } })
+        );
+      }
     }
   };
 

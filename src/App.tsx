@@ -1,7 +1,9 @@
 import { ReadingView } from './components/reader/ReadingView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { BookshelfPage } from './components/bookshelf/BookshelfPage';
-import { WelcomeGuide } from './components/onboarding/WelcomeGuide';
+import { HomePage } from './components/home/HomePage';
+import { ReviewPage } from './components/review/ReviewPage';
+import { StorageHealthNotice } from './components/layout/StorageHealthNotice';
 import { useUIStore } from './stores/uiSlice';
 import { useBookStore } from './stores/bookSlice';
 
@@ -11,17 +13,20 @@ export default function App() {
     s.books.some((book) => book.id === s.currentBookId)
   );
 
-  // Each page owns its own chrome now: the shelf has its top bar and rail,
-  // the reader has the binder. There is no app-level navigation frame left to
-  // squeeze the reading column.
+  // Each page owns its own chrome now: the home has a desk, the shelf has its
+  // own top bar and rail, the reader has the binder.
   return (
     <>
       {currentView === 'reader' && hasCurrentBook ? (
         <ReadingView />
-      ) : (
+      ) : currentView === 'bookshelf' ? (
         <BookshelfPage />
+      ) : currentView === 'review' ? (
+        <ReviewPage />
+      ) : (
+        <HomePage />
       )}
-      <WelcomeGuide />
+      <StorageHealthNotice />
       <SettingsModal />
     </>
   );

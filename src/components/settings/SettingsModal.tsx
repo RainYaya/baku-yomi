@@ -3,9 +3,10 @@ import { useUIStore } from '../../stores/uiSlice';
 import { FiX } from 'react-icons/fi';
 import { AISettingsPanel } from './AISettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
+import { DataSettingsPanel } from './DataSettingsPanel';
 import { registerKeyboardHandler } from '../../lib/keyboard';
 
-type SettingsTab = 'ai' | 'voice';
+type SettingsTab = 'ai' | 'voice' | 'data';
 
 export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
@@ -58,10 +59,24 @@ export function SettingsModal() {
           >
             语音
           </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'data'}
+            className={`settings-tab ${activeTab === 'data' ? 'active' : ''}`}
+            onClick={() => setActiveTab('data')}
+          >
+            数据
+          </button>
         </div>
 
         <div className="settings-drawer-content">
-          {activeTab === 'ai' ? <AISettingsPanel /> : <VoiceSettingsPanel />}
+          {activeTab === 'ai' ? (
+            <AISettingsPanel />
+          ) : activeTab === 'voice' ? (
+            <VoiceSettingsPanel />
+          ) : (
+            <DataSettingsPanel />
+          )}
         </div>
 
         <div className="settings-drawer-footer">

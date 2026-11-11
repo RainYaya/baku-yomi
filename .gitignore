@@ -47,6 +47,9 @@ _audit-*.png
 # Docker
 docker-compose.override.yml
 
+# Local-only imported reading material (do not commit)
+local-data/
+
 # AI assistant session data
 .alma-snapshots
 .vibe-learn/

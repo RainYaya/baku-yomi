@@ -58,6 +58,7 @@ export function PracticeDesk({
   const setNote = usePracticeStore((s) => s.setNote);
   const setHint = usePracticeStore((s) => s.setHint);
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
+  const setPairTranslationReviewed = useBookStore((s) => s.setPairTranslationReviewed);
   const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
   const openSettings = useUIStore((s) => s.openSettings);
   const { analyze } = useAnalysis();
@@ -207,6 +208,7 @@ export function PracticeDesk({
         <main className="d2-body d2-body-explain">
           <section className="d2-sheet d2-explain">
             <ExplainContent
+              pairId={pair.id}
               sentence={pair.japanese}
               fragment={fragment}
               onClose={() => onTabChange('practice')}
@@ -313,6 +315,17 @@ export function PracticeDesk({
               >
                 编辑译文
               </button>
+              {pair.translationSource === 'ai' && (
+                <button
+                  className="d2-quiet"
+                  onClick={() =>
+                    setPairTranslationReviewed(pair.id, !pair.translationReviewed)
+                  }
+                  title="标记这句 AI 译文已经人工校对"
+                >
+                  {pair.translationReviewed ? '取消已校' : '标记已校'}
+                </button>
+              )}
               <button className="d2-quiet" onClick={() => setShowNote(true)}>
                 添加笔记
               </button>

@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, useCallback } from 'react';
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   clearVoicevoxCache,
   getVoicevoxCacheStats,
@@ -13,22 +13,30 @@ import { usePracticeStore } from '../../stores/practiceSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { SentencePairCard } from './SentencePairCard';
+import { ChapterTranslationBar } from './ChapterTranslationBar';
+import { useChapterTranslation } from '../../hooks/useChapterTranslation';
 import { InlinePracticeCard, type InlineTab } from './InlinePracticeCard';
 import { PracticeDesk } from './PracticeDesk';
 import { ShortcutHelp } from './ShortcutHelp';
 import { SelectionPopover } from './SelectionPopover';
 import { BookmarkList } from './BookmarkList';
+import { PasteTextDialog } from '../import/PasteTextDialog';
 import { useTextSelection, type SelectionInfo } from '../../hooks/useTextSelection';
 import { useBookmarkStore } from '../../stores/bookmarkSlice';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
+  FiArrowDown,
+  FiArrowUp,
   FiBookmark,
   FiChevronLeft,
   FiChevronRight,
   FiColumns,
   FiPause,
   FiPlay,
+  FiPlus,
+  FiSearch,
   FiSettings,
+  FiTrash2,
   FiX,
 } from 'react-icons/fi';
 import { useMachine } from '../../machines/react';
@@ -72,6 +80,13 @@ export function ReadingView() {
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
   const getReadingProgress = useBookStore((s) => s.getReadingProgress);
+  const readingProgressMap = useBookStore((s) => s.readingProgress);
+  const scrollToPairId = useBookStore((s) => s.scrollToPairId);
+  const practicePairId = useBookStore((s) => s.practicePairId);
+  const setPracticePairId = useBookStore((s) => s.setPracticePairId);
+  const setScrollToPairId = useBookStore((s) => s.setScrollToPairId);
+  const removeChapterFromBook = useBookStore((s) => s.removeChapterFromBook);
+  const moveChapterInBook = useBookStore((s) => s.moveChapterInBook);
   const fontZoom = useSettingsStore((s) => s.fontZoom);
   const changeFontZoom = useSettingsStore((s) => s.changeFontZoom);
   const readerColumns = useSettingsStore((s) => s.readerColumns);
@@ -107,6 +122,8 @@ export function ReadingView() {
   const [explainFragment, setExplainFragment] = useState('');
   const [showBookmarkList, setShowBookmarkList] = useState(false);
   const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
+  const [tocQuery, setTocQuery] = useState('');
+  const [addArticleOpen, setAddArticleOpen] = useState(false);
   // The two-column spread is a desktop affordance; tablets and phones keep
   // the single-column flow they were tuned for.
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -167,6 +184,37 @@ export function ReadingView() {
   const chapterBookmarkCount = currentChapter
     ? allBookmarks.filter((b) => b.chapterId === currentChapter.id).length
     : 0;
+
+  const bookHits = useMemo(() => {
+    const lower = tocQuery.trim().toLowerCase();
+    if (!lower || !currentBook) return [];
+    const hits: Array<{
+      chapterIndex: number;
+      chapterTitle: string;
+      pairId: string;
+      japanese: string;
+      chinese: string;
+    }> = [];
+    for (const chapter of currentBook.chapters) {
+      for (const pair of chapter.pairs) {
+        if (
+          !(pair.japanese ?? '').toLowerCase().includes(lower) &&
+          !(pair.chinese ?? '').toLowerCase().includes(lower)
+        ) {
+          continue;
+        }
+        hits.push({
+          chapterIndex: chapter.index,
+          chapterTitle: chapter.title,
+          pairId: pair.id,
+          japanese: pair.japanese,
+          chinese: pair.chinese ?? '',
+        });
+        if (hits.length >= 40) return hits;
+      }
+    }
+    return hits;
+  }, [currentBook, tocQuery]);
 
   const getPairElement = useCallback((pairId: string) => {
     const container = scrollHostRef.current;
@@ -558,6 +606,17 @@ export function ReadingView() {
       sendSession({ type: 'OPEN_INLINE' });
     },
     [ensureSelected, sendSession]
+  );
+
+  const { retranslatePair } = useChapterTranslation();
+  const handleRetranslate = useCallback(
+    async (pairId: string) => {
+      if (!currentBook || !currentChapter) return;
+      const pair = currentChapter.pairs.find((item) => item.id === pairId);
+      if (!pair) return;
+      await retranslatePair(currentBook, pair);
+    },
+    [currentBook, currentChapter, retranslatePair]
   );
 
   const handleDesk = useCallback(
@@ -957,6 +1016,41 @@ export function ReadingView() {
     scrollPairToReadingPosition,
   ]);
 
+  // Jump back from the review page: select the recorded sentence, then bring
+  // it into view. The command is transient and cleared after use.
+  useEffect(() => {
+    if (!scrollToPairId) return;
+    const frame = requestAnimationFrame(() => {
+      const pair = currentChapter?.pairs.find((item) => item.id === scrollToPairId);
+      if (!pair) {
+        setScrollToPairId(null);
+        return;
+      }
+      skipNextScrollRef.current = true;
+      if (practicePairId === pair.id) {
+        // "再练一次" from the review page: open the inline practice card on
+        // the recorded sentence instead of only selecting it. Selecting twice
+        // would toggle the sentence off, so let handlePractice own selection.
+        handlePractice(pair.id);
+        setPracticePairId(null);
+      } else {
+        handleSelectPair(pair.id);
+      }
+      scrollPairToReadingPosition(pair.id);
+      setScrollToPairId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    scrollToPairId,
+    practicePairId,
+    currentChapter,
+    handleSelectPair,
+    handlePractice,
+    scrollPairToReadingPosition,
+    setPracticePairId,
+    setScrollToPairId,
+  ]);
+
   // Close panel when clicking outside (on the reading area)
   const handleReadingAreaClick = (e: React.MouseEvent) => {
     setChapterMenuOpen(false);
@@ -1086,6 +1180,18 @@ export function ReadingView() {
     if (index >= 0) setReadingProgress(currentChapter.id, index);
   }, [columnMode, currentChapter, selectedPairId, setReadingProgress]);
 
+  const jumpToSearchHit = useCallback(
+    (chapterIndex: number, pairId: string) => {
+      setChapterMenuOpen(false);
+      setTocQuery('');
+      setCurrentChapter(chapterIndex);
+      setScrollToPairId(pairId);
+      setExplainFragment('');
+      sendSession({ type: 'DESELECT' });
+    },
+    [sendSession, setCurrentChapter, setScrollToPairId]
+  );
+
   const switchChapter = useCallback(
     (index: number) => {
       setChapterMenuOpen(false);
@@ -1099,6 +1205,24 @@ export function ReadingView() {
     },
     [sendSession, setCurrentChapter, turnToSpreadPage]
   );
+
+  const handleRemoveChapter = (index: number) => {
+    if (!currentBook) return;
+    const removingCurrent = index === currentChapter?.index;
+    removeChapterFromBook(currentBook.id, index);
+    if (currentBook.chapters.length <= 1) {
+      setCurrentView('home');
+      return;
+    }
+    if (removingCurrent) {
+      switchChapter(Math.min(index, currentBook.chapters.length - 2));
+    }
+  };
+
+  const handleMoveChapter = (from: number, to: number) => {
+    if (!currentBook) return;
+    moveChapterInBook(currentBook.id, from, to);
+  };
 
   if (!currentBook) return null;
 
@@ -1114,6 +1238,7 @@ export function ReadingView() {
     );
   }
 
+  const isCollection = currentBook.source?.kind === 'collection';
   const savedProgress = getReadingProgress(currentChapter.id);
   const totalPairs = currentChapter.pairs.length;
   const currentIndex = Math.min(totalPairs, Math.max(1, savedProgress + 1));
@@ -1130,6 +1255,7 @@ export function ReadingView() {
           : '未知作者'}{' '}
         · {currentChapter.pairs.length} 句
       </p>
+      <ChapterTranslationBar book={currentBook} chapter={currentChapter} />
     </>
   );
 
@@ -1141,6 +1267,7 @@ export function ReadingView() {
         onSelect={handleCardSelect}
         onPractice={handlePractice}
         onExplain={handleExplain}
+        onRetranslate={handleRetranslate}
       />
       {inlineOpen && session.pairId === pair.id && (
         <InlinePracticeCard
@@ -1171,6 +1298,14 @@ export function ReadingView() {
         · <kbd>P</kbd> 練習 · <kbd>E</kbd> 講解 · <kbd>?</kbd> 全部快捷键
       </span>
       <div className="read-foot-end">
+        {currentChapter.index < currentBook.chapters.length - 1 && (
+          <button
+            className="read-next-chapter"
+            onClick={() => switchChapter(currentChapter.index + 1)}
+          >
+            下一章 <FiChevronRight size={13} />
+          </button>
+        )}
         {columnMode === 2 && (
           <div className="spread-pager">
             <button
@@ -1238,17 +1373,108 @@ export function ReadingView() {
         {chapterMenuOpen && (
           <div className="chapter-menu" role="menu" aria-label="章节">
             <div className="chapter-menu-head">章节</div>
-            {currentBook.chapters.map((chapter, index) => (
+            <label className="chapter-menu-search">
+              <FiSearch size={12} aria-hidden="true" />
+              <input
+                value={tocQuery}
+                onChange={(event) => setTocQuery(event.target.value)}
+                placeholder="搜索本书正文…"
+                aria-label="搜索本书正文"
+              />
+            </label>
+            {tocQuery.trim() ? (
+              <div className="chapter-menu-hits">
+                {bookHits.length === 0 ? (
+                  <p className="chapter-menu-empty">没有匹配的句子。</p>
+                ) : (
+                  bookHits.map((hit) => (
+                    <button
+                      key={hit.pairId}
+                      role="menuitem"
+                      onClick={() => jumpToSearchHit(hit.chapterIndex, hit.pairId)}
+                    >
+                      <span className="chapter-menu-hit-ja">{hit.japanese}</span>
+                      {hit.chinese && (
+                        <small className="chapter-menu-hit-zh">{hit.chinese}</small>
+                      )}
+                      <small>{hit.chapterTitle}</small>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
+              currentBook.chapters.map((chapter, index) => {
+                const saved = readingProgressMap[chapter.id] ?? 0;
+                const pct =
+                  chapter.pairs.length > 0
+                    ? Math.min(
+                        100,
+                        Math.round(((saved + 1) / chapter.pairs.length) * 100)
+                      )
+                    : 0;
+                const chapterButton = (
+                  <button
+                    role="menuitem"
+                    className={index === currentChapter.index ? 'active' : ''}
+                    onClick={() => switchChapter(index)}
+                  >
+                    <span>{chapter.title}</span>
+                    <small>
+                      {chapter.pairs.length} 句 · {pct}%
+                    </small>
+                  </button>
+                );
+
+                if (!isCollection) {
+                  return <Fragment key={chapter.id}>{chapterButton}</Fragment>;
+                }
+
+                return (
+                  <div className="chapter-row" key={chapter.id}>
+                    {chapterButton}
+                    <span className="chapter-row-tools">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveChapter(index, index - 1)}
+                        disabled={index === 0}
+                        aria-label={`上移《${chapter.title}》`}
+                        title="上移"
+                      >
+                        <FiArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveChapter(index, index + 1)}
+                        disabled={index === currentBook.chapters.length - 1}
+                        aria-label={`下移《${chapter.title}》`}
+                        title="下移"
+                      >
+                        <FiArrowDown size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveChapter(index)}
+                        aria-label={`删除《${chapter.title}》`}
+                        title="删除这篇"
+                      >
+                        <FiTrash2 size={12} />
+                      </button>
+                    </span>
+                  </div>
+                );
+              })
+            )}
+            {isCollection && !tocQuery.trim() && (
               <button
-                key={chapter.id}
-                role="menuitem"
-                className={index === currentChapter.index ? 'active' : ''}
-                onClick={() => switchChapter(index)}
+                className="chapter-menu-add"
+                onClick={() => {
+                  setChapterMenuOpen(false);
+                  setAddArticleOpen(true);
+                }}
               >
-                <span>{chapter.title}</span>
-                <small>{chapter.pairs.length} 句</small>
+                <FiPlus size={13} /> 添加文章
               </button>
-            ))}
+            )}
           </div>
         )}
 
@@ -1396,6 +1622,14 @@ export function ReadingView() {
       )}
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
+
+      {isCollection && (
+        <PasteTextDialog
+          open={addArticleOpen}
+          onClose={() => setAddArticleOpen(false)}
+          targetBookId={currentBook.id}
+        />
+      )}
 
       {/* Selection popover */}
       {selection && currentChapter && (
