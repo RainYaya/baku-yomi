@@ -62,7 +62,6 @@ export async function fetchLocalSeedLibrary(): Promise<Book[]> {
           kind: entry.kind === 'collection' ? 'collection' : 'text',
         },
         chapterSeq: entry.kind === 'collection' ? nextSeq : undefined,
-        demo: true,
       });
     } catch {
       // A missing or malformed seed file should never block the app.
