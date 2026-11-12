@@ -1,0 +1,11 @@
+{
+  "books": [
+    {
+      "id": "local-tenseijingo",
+      "title": "天声人语",
+      "author": "合集",
+      "kind": "collection",
+      "file": "/default-library.md"
+    }
+  ]
+}

@@ -49,6 +49,8 @@ docker-compose.override.yml
 
 # Local-only imported reading material (do not commit)
 local-data/
+public/default-library.json
+public/default-library.md
 
 # AI assistant session data
 .alma-snapshots

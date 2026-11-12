@@ -6,6 +6,7 @@ import { buildTextChapters } from '../lib/import/textMaterial';
 import { createBookId } from '../lib/id';
 import { migrateBookPairIds } from '../lib/pairMigration';
 import { buildDemoLibrary } from '../lib/seed/demoLibrary';
+import { fetchLocalSeedLibrary } from '../lib/seed/localSeed';
 
 interface BookState {
   books: Book[];
@@ -27,6 +28,8 @@ interface BookState {
 
   addBook: (book: Book) => void;
   seedDemoLibrary: () => void;
+  /** Adds books declared in the optional public/default-library.json. */
+  loadLocalSeed: () => Promise<void>;
   removeBook: (id: string) => void;
   renameBook: (id: string, title: string) => void;
   createCollectionBook: (title: string) => string;
@@ -103,6 +106,17 @@ export const useBookStore = create<BookState>()(
         set({
           books: [...state.books, ...demoBooks],
           seededAt: Date.now(),
+        });
+      },
+
+      loadLocalSeed: async () => {
+        const incoming = await fetchLocalSeedLibrary();
+        if (incoming.length === 0) return;
+        set((state) => {
+          const existing = new Set(state.books.map((book) => book.id));
+          const fresh = incoming.filter((book) => !existing.has(book.id));
+          if (fresh.length === 0) return {};
+          return { books: [...state.books, ...fresh] };
         });
       },
 
@@ -441,7 +455,10 @@ export const useBookStore = create<BookState>()(
         };
       },
       onRehydrateStorage: () => (state, error) => {
-        if (!error) state?.seedDemoLibrary();
+        if (!error) {
+          state?.seedDemoLibrary();
+          void state?.loadLocalSeed();
+        }
       },
     }
   )
