@@ -13,6 +13,7 @@ import {
 } from '../../types';
 import { useExplain, useFollowUp, type FollowUpState } from '../../hooks/useExplain';
 import { usePracticeStore } from '../../stores/practiceSlice';
+import { selectExplainView } from '../../lib/explain/view';
 import { MarkdownBlock } from './MarkdownBlock';
 import { SentenceUnitText } from './SentenceUnitText';
 
@@ -43,25 +44,31 @@ export function ExplainContent({ pairId, sentence, fragment, onClose, compact = 
   const [question, setQuestion] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { state, explain, retry, reset, cancel } = useExplain();
-  const followUpRunner = useFollowUp();
+  const { ask: askFollowUp, cancel: cancelFollowUp } = useFollowUp();
   const setExplanation = usePracticeStore((s) => s.setExplanation);
   const saved = usePracticeStore((s) =>
     pairId ? (s.explanations ?? {})[`${pairId}:${action}`] : undefined
   );
 
-  const busy = state.status === 'streaming';
-  const streamingText = state.status === 'streaming' ? state.text : '';
-  const answer = state.status === 'ready' ? state.answer : null;
   // A saved answer only stands in when it was made for the same fragment and
   // depth; narrowing the selection or asking for more detail must re-request.
   const cached =
     saved && saved.fragment === fragment && saved.depth === depth ? saved.answer : null;
-  const shownAnswer = answer ?? (state.status === 'idle' ? cached : null);
+  // Scope everything to the visible action: the machine can still be holding
+  // a ready or failed result from the tab the user just left.
+  const { busy, streamingText, shownAnswer, liveAnswer, failure } = selectExplainView(
+    state,
+    action,
+    cached
+  );
   const cachedRef = useRef(cached);
   cachedRef.current = cached;
 
   const explainRef = useRef(explain);
   explainRef.current = explain;
+
+  const resetRef = useRef(reset);
+  resetRef.current = reset;
 
   const run = useCallback(
     (nextAction: ExplainAction, nextDepth: ExplainDepth) => {
@@ -81,10 +88,17 @@ export function ExplainContent({ pairId, sentence, fragment, onClose, compact = 
   // A matching saved answer is shown instead, so reopening a sentence costs
   // nothing until the user asks to regenerate.
   useEffect(() => {
-    if (cachedRef.current) return;
+    if (cachedRef.current) {
+      // Switching to a tab that already has an answer must stop the previous
+      // tab's request, or its failure can land under the wrong heading.
+      cancelFollowUp();
+      setFollowUp({ status: 'idle', text: '' });
+      setQuestion('');
+      resetRef.current();
+      return;
+    }
     run(action, depth);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [action, depth, sentence, fragment]);
+  }, [action, depth, sentence, fragment, cancelFollowUp, run]);
 
   // Persist every completed answer under its pair and action.
   useEffect(() => {
@@ -97,8 +111,6 @@ export function ExplainContent({ pairId, sentence, fragment, onClose, compact = 
   }, [pairId, state, fragment, depth, setExplanation]);
 
   // Abort whatever is in flight when the surface goes away.
-  const resetRef = useRef(reset);
-  resetRef.current = reset;
   useEffect(() => {
     return () => resetRef.current();
   }, []);
@@ -114,7 +126,7 @@ export function ExplainContent({ pairId, sentence, fragment, onClose, compact = 
   const handleAsk = () => {
     const trimmed = question.trim();
     if (!trimmed || !shownAnswer) return;
-    void followUpRunner.ask(
+    void askFollowUp(
       { sentence, fragment, action, depth },
       trimmed,
       shownAnswer.markdown,
@@ -198,35 +210,35 @@ export function ExplainContent({ pairId, sentence, fragment, onClose, compact = 
           </p>
         )}
 
-        {state.status === 'failed' ? (
+        {failure && (
           <div className="explain-error">
-            <p>{state.message}</p>
+            <p>{failure}</p>
             <button onClick={() => void retry()} className="explain-retry-btn">
               重试
             </button>
           </div>
-        ) : (
-          <>
-            {shownAnswer ? (
-              <MarkdownBlock text={shownAnswer.markdown} className="text-reading" />
-            ) : streamingText ? (
-              // Render the partial answer as markdown too: the model streams
-              // headings and list markers first, and showing them as literal
-              // `###` / `1.` makes the panel look broken until it finishes.
-              <MarkdownBlock text={streamingText} className="text-reading" />
-            ) : (
-              <p className="explain-waiting">
-                <span className="explain-pulse" aria-hidden="true" />
-                正在生成讲解…
-              </p>
-            )}
-            {busy && <span className="explain-cursor" aria-hidden="true" />}
-          </>
         )}
+
+        {shownAnswer ? (
+          <MarkdownBlock text={shownAnswer.markdown} className="text-reading" />
+        ) : streamingText ? (
+          // Render the partial answer as markdown too: the model streams
+          // headings and list markers first, and showing them as literal
+          // `###` / `1.` makes the panel look broken until it finishes.
+          <MarkdownBlock text={streamingText} className="text-reading" />
+        ) : (
+          !failure && (
+            <p className="explain-waiting">
+              <span className="explain-pulse" aria-hidden="true" />
+              正在生成讲解…
+            </p>
+          )
+        )}
+        {busy && <span className="explain-cursor" aria-hidden="true" />}
 
         {shownAnswer && (
           <p className="explain-provenance">
-            {!answer && '上次的讲解，已保存。'}
+            {!liveAnswer && '上次的讲解，已保存。'}
             {shownAnswer.model.includes('Index-Translate')
               ? '由免费模型生成，语法细节可能有误，重要结论请自行核对。'
               : `由 ${shownAnswer.model} 生成。`}

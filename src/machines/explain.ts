@@ -16,7 +16,7 @@ export type ExplainState =
   | { status: 'idle' }
   | { status: 'streaming'; requestId: number; action: ExplainAction; text: string }
   | { status: 'ready'; requestId: number; answer: ExplainAnswer }
-  | { status: 'failed'; requestId: number; message: string };
+  | { status: 'failed'; requestId: number; action: ExplainAction; message: string };
 
 export type ExplainEvent =
   | { type: 'START'; requestId: number; action: ExplainAction }
@@ -49,7 +49,14 @@ export const explainMachine = createMachine<ExplainState, ExplainEvent>({
         return state;
       case 'FAILED':
         if (state.status === 'streaming' && state.requestId === event.requestId) {
-          return { status: 'failed', requestId: event.requestId, message: event.message };
+          // Keep the action on the failure: the panel must not show an error
+          // raised for the tab the user has already left.
+          return {
+            status: 'failed',
+            requestId: event.requestId,
+            action: state.action,
+            message: event.message,
+          };
         }
         return state;
       case 'RESET':
