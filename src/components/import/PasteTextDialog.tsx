@@ -1,6 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiFileText, FiLink, FiX } from 'react-icons/fi';
 import { buildTextBook } from '../../lib/import/textMaterial';
+import {
+  resolvePasteTargetId,
+  type PasteDestination,
+} from '../../lib/import/pasteDestination';
 import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { registerKeyboardHandler } from '../../lib/keyboard';
@@ -27,6 +31,8 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
   const appendTextChapter = useBookStore((s) => s.appendTextChapter);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
+  const books = useBookStore((s) => s.books);
+  const currentBookId = useBookStore((s) => s.currentBookId);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
@@ -36,7 +42,33 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
   const [url, setUrl] = useState('');
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [destination, setDestination] = useState<PasteDestination>('new');
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  // Collections first, then the most recently imported books: the target is
+  // usually the collection the reader is already adding articles to.
+  const bookOptions = useMemo(
+    () =>
+      [...books].sort((a, b) => {
+        const aCollection = a.source?.kind === 'collection' ? 0 : 1;
+        const bCollection = b.source?.kind === 'collection' ? 0 : 1;
+        if (aCollection !== bCollection) return aCollection - bCollection;
+        return (b.importedAt ?? 0) - (a.importedAt ?? 0);
+      }),
+    [books]
+  );
+
+  const appendTargetId = resolvePasteTargetId({
+    targetBookId,
+    destination,
+    selectedBookId: selectedBookId ?? currentBookId ?? undefined,
+    books: bookOptions,
+  });
+  const appendTarget = appendTargetId
+    ? bookOptions.find((book) => book.id === appendTargetId)
+    : undefined;
+  const isAppend = Boolean(appendTargetId);
 
   useEffect(() => {
     if (!open) return;
@@ -124,10 +156,14 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
       return;
     }
     try {
-      if (targetBookId) {
-        const appended = appendTextChapter(targetBookId, { title, text });
-        if (!appended) throw new Error('没有可导入的正文。');
-        setCurrentBook(targetBookId);
+      if (appendTargetId) {
+        const appended = appendTextChapter(appendTargetId, { title, text });
+        if (!appended) {
+          throw new Error(
+            appendTarget ? '没有可导入的正文。' : '目标书不存在，请重新选择。'
+          );
+        }
+        setCurrentBook(appendTargetId);
         setCurrentChapter(appended.chapterIndex);
       } else {
         const book = buildTextBook({ title, author, text });
@@ -154,7 +190,11 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
           <div>
             <span className="paste-kicker">ADD MATERIAL</span>
             <h2 id="paste-title">
-              {targetBookId ? '添加文章到合集' : '粘贴文章或导入文本'}
+              {appendTarget
+                ? `添加文章到《${appendTarget.title}》`
+                : isAppend
+                  ? '添加文章'
+                  : '粘贴文章或导入文本'}
             </h2>
           </div>
           <button className="settings-close-btn" onClick={onClose} aria-label="关闭">
@@ -194,9 +234,51 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
             {urlError && <p className="paste-error">{urlError}</p>}
           </div>
 
+          {!targetBookId && bookOptions.length > 0 && (
+            <div className="paste-destination">
+              <span className="paste-destination-label">导入到</span>
+              <label>
+                <input
+                  type="radio"
+                  name="paste-destination"
+                  checked={destination === 'new'}
+                  onChange={() => setDestination('new')}
+                />
+                新书
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="paste-destination"
+                  checked={destination === 'existing'}
+                  onChange={() => setDestination('existing')}
+                />
+                现有书
+              </label>
+              {destination === 'existing' && (
+                <>
+                  <select
+                    value={appendTarget?.id ?? ''}
+                    onChange={(event) => setSelectedBookId(event.target.value)}
+                    aria-label="选择要加入的书"
+                  >
+                    {bookOptions.map((book) => (
+                      <option key={book.id} value={book.id}>
+                        {book.title}（{book.chapters.length} 章）
+                      </option>
+                    ))}
+                  </select>
+                  <small className="paste-destination-hint">
+                    每篇文章会成为一个章节。
+                  </small>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="paste-row">
             <label className="paste-field">
-              <span>{targetBookId ? '文章标题' : '标题'}</span>
+              <span>{isAppend ? '文章标题' : '标题'}</span>
               <input
                 ref={titleRef}
                 value={title}
@@ -204,7 +286,7 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
                 placeholder="留空时使用第一行标题或「正文」"
               />
             </label>
-            {!targetBookId && (
+            {!isAppend && (
               <label className="paste-field paste-field-author">
                 <span>作者（可选）</span>
                 <input
@@ -258,7 +340,11 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
             取消
           </button>
           <button className="stamp" onClick={handleImport} disabled={!text.trim()}>
-            {targetBookId ? '加入合集' : '放进书架'}
+            {isAppend
+              ? appendTarget?.source?.kind === 'collection'
+                ? '加入合集'
+                : '加入这本书'
+              : '放进书架'}
           </button>
         </footer>
       </section>
