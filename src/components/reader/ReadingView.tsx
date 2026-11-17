@@ -23,6 +23,12 @@ import { BookmarkList } from './BookmarkList';
 import { PasteTextDialog } from '../import/PasteTextDialog';
 import { useTextSelection, type SelectionInfo } from '../../hooks/useTextSelection';
 import { useBookmarkStore } from '../../stores/bookmarkSlice';
+import { useVocabStore } from '../../stores/vocabSlice';
+import {
+  createVocabDraftFromEntry,
+  createVocabDraftFromSelection,
+  findDuplicateVocabEntry,
+} from '../../lib/vocab/draft';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
   FiArrowDown,
@@ -99,6 +105,8 @@ export function ReadingView() {
   const voicevoxCacheLimitMB = useSettingsStore((s) => s.voicevoxCacheLimitMB);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const openSettings = useUIStore((s) => s.openSettings);
+  const openVocabDialog = useUIStore((s) => s.openVocabDialog);
+  const vocabEntries = useVocabStore((s) => s.entries);
   const scrollHostRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const restoredRef = useRef<string | null>(null);
@@ -643,6 +651,33 @@ export function ReadingView() {
       sendSession({ type: 'OPEN_INLINE' });
     },
     [currentChapter, ensureSelected, sendSession]
+  );
+
+  const handleAddVocab = useCallback(
+    (selection: SelectionInfo) => {
+      const pair = currentChapter?.pairs.find((p) => p.id === selection.pairId);
+      if (!pair || !currentBook || !currentChapter) return;
+
+      const draft = createVocabDraftFromSelection({
+        selection,
+        pair,
+        bookId: currentBook.id,
+        chapterId: currentChapter.id,
+        chapterIndex: currentChapter.index,
+      });
+      const duplicate = findDuplicateVocabEntry(
+        vocabEntries,
+        draft.word,
+        draft.example
+      );
+
+      openVocabDialog({
+        draft: duplicate ? createVocabDraftFromEntry(duplicate) : draft,
+        entry: duplicate ?? undefined,
+        notice: duplicate ? '这个词已经在本句存过了，已打开那条记录。' : undefined,
+      });
+    },
+    [currentBook, currentChapter, openVocabDialog, vocabEntries]
   );
 
   const handleBack = useCallback(() => {
@@ -1228,13 +1263,28 @@ export function ReadingView() {
 
   if (!currentChapter) {
     return (
-      <div className="binder-stage">
-        <div className="binder">
-          <div className="binder-sheet">
-            <p className="chapter-byline">这本书还没有可阅读的章节。</p>
+      <>
+        <div className="binder-stage">
+          <div className="binder">
+            <div className="binder-sheet">
+              <div className="read-empty">
+                <p className="chapter-byline">这本书还没有可阅读的章节。</p>
+                <button
+                  className="shelf-btn"
+                  onClick={() => setAddArticleOpen(true)}
+                >
+                  <FiPlus size={13} /> 添加文章
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+        <PasteTextDialog
+          open={addArticleOpen}
+          onClose={() => setAddArticleOpen(false)}
+          targetBookId={currentBook.id}
+        />
+      </>
     );
   }
 
@@ -1425,10 +1475,6 @@ export function ReadingView() {
                   </button>
                 );
 
-                if (!isCollection) {
-                  return <Fragment key={chapter.id}>{chapterButton}</Fragment>;
-                }
-
                 return (
                   <div className="chapter-row" key={chapter.id}>
                     {chapterButton}
@@ -1454,8 +1500,13 @@ export function ReadingView() {
                       <button
                         type="button"
                         onClick={() => handleRemoveChapter(index)}
+                        disabled={!isCollection && currentBook.chapters.length <= 1}
                         aria-label={`删除《${chapter.title}》`}
-                        title="删除这篇"
+                        title={
+                          !isCollection && currentBook.chapters.length <= 1
+                            ? '至少保留一章'
+                            : '删除这篇'
+                        }
                       >
                         <FiTrash2 size={12} />
                       </button>
@@ -1464,7 +1515,7 @@ export function ReadingView() {
                 );
               })
             )}
-            {isCollection && !tocQuery.trim() && (
+            {!tocQuery.trim() && (
               <button
                 className="chapter-menu-add"
                 onClick={() => {
@@ -1472,7 +1523,7 @@ export function ReadingView() {
                   setAddArticleOpen(true);
                 }}
               >
-                <FiPlus size={13} /> 添加文章
+                <FiPlus size={13} /> {isCollection ? '添加文章' : '添加章节'}
               </button>
             )}
           </div>
@@ -1623,13 +1674,11 @@ export function ReadingView() {
 
       {showHelp && <ShortcutHelp onClose={() => setShowHelp(false)} />}
 
-      {isCollection && (
-        <PasteTextDialog
-          open={addArticleOpen}
-          onClose={() => setAddArticleOpen(false)}
-          targetBookId={currentBook.id}
-        />
-      )}
+      <PasteTextDialog
+        open={addArticleOpen}
+        onClose={() => setAddArticleOpen(false)}
+        targetBookId={currentBook.id}
+      />
 
       {/* Selection popover */}
       {selection && currentChapter && (
@@ -1638,6 +1687,7 @@ export function ReadingView() {
           chapterId={currentChapter.id}
           onClose={clearSelection}
           onExplain={handleExplainSelection}
+          onAddVocab={handleAddVocab}
           onPreserveSelection={keepSelection}
         />
       )}

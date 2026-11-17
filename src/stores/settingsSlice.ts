@@ -7,6 +7,8 @@ import { createDebouncedStorage } from '../lib/debouncedStorage';
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
 export type ReaderColumns = 1 | 2;
+/** Card keeps the sentence big; compact fits many rows on one screen. */
+export type VocabDensity = 'card' | 'compact';
 
 export interface AIProviderProfile extends AIProviderConfig {
   id: string;
@@ -23,6 +25,7 @@ interface SettingsState {
   keywordMode: boolean;
   layoutMode: LayoutMode;
   readerColumns: ReaderColumns;
+  vocabDensity: VocabDensity;
   fontZoom: number;
   voicevoxSpeakerId: number;
   voicevoxSpeed: number;
@@ -42,6 +45,7 @@ interface SettingsState {
   toggleKeywordMode: () => void;
   setLayoutMode: (mode: LayoutMode) => void;
   setReaderColumns: (columns: ReaderColumns) => void;
+  setVocabDensity: (density: VocabDensity) => void;
   changeFontZoom: (direction: 1 | -1) => void;
   setVoicevoxSpeakerId: (speakerId: number) => void;
   setVoicevoxSpeed: (speed: number) => void;
@@ -83,6 +87,8 @@ export const useSettingsStore = create<SettingsState>()(
       // Desktop opens as an open book; tablets and phones stay single-column
       // because the reader only honours this at >=1100px.
       readerColumns: 2 as ReaderColumns,
+      // Scanning the wordbook beats admiring one entry: compact by default.
+      vocabDensity: 'compact' as VocabDensity,
       fontZoom: 1,
       voicevoxSpeakerId: 1,
       voicevoxSpeed: 1,
@@ -148,6 +154,8 @@ export const useSettingsStore = create<SettingsState>()(
       setLayoutMode: (mode) => set({ layoutMode: mode }),
 
       setReaderColumns: (columns) => set({ readerColumns: columns }),
+
+      setVocabDensity: (density) => set({ vocabDensity: density }),
 
       changeFontZoom: (direction) =>
         set((state) => {

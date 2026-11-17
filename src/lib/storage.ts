@@ -6,6 +6,7 @@ export const STORAGE_WARN_BYTES = 3.5 * 1024 * 1024;
 export const BACKUP_KEYS = [
   'book-store',
   'practice-store',
+  'vocab-store',
   'baku-yomi-bookmarks',
 ] as const;
 

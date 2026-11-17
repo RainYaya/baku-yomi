@@ -2,3 +2,7 @@
 export function createBookId(): string {
   return `book-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+export function createVocabId(): string {
+  return `vocab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}

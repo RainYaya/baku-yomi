@@ -1,6 +1,6 @@
 import { useBookmarkStore, BOOKMARK_COLORS } from '../../stores/bookmarkSlice';
 import type { SelectionInfo } from '../../hooks/useTextSelection';
-import { FiBookOpen } from 'react-icons/fi';
+import { FiBookmark, FiBookOpen } from 'react-icons/fi';
 
 interface Props {
   selection: SelectionInfo;
@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void;
   /** Opens the explanation panel for the selected fragment. */
   onExplain: (selection: SelectionInfo) => void;
+  /** Opens the vocabulary detail card for the selected word. */
+  onAddVocab: (selection: SelectionInfo) => void;
   /** Keeps the captured selection alive while the user taps this toolbar. */
   onPreserveSelection: () => void;
 }
@@ -17,6 +19,7 @@ export function SelectionPopover({
   chapterId,
   onClose,
   onExplain,
+  onAddVocab,
   onPreserveSelection,
 }: Props) {
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
@@ -34,7 +37,7 @@ export function SelectionPopover({
   };
 
   const anchorX = selection.rect.left + selection.rect.width / 2;
-  const left = Math.min(Math.max(anchorX, 92), window.innerWidth - 92);
+  const left = Math.min(Math.max(anchorX, 150), window.innerWidth - 150);
   const showAbove = selection.rect.bottom + 52 > window.innerHeight;
   const top = showAbove ? selection.rect.top - 44 : selection.rect.bottom + 8;
 
@@ -65,6 +68,18 @@ export function SelectionPopover({
         ))}
 
         <span className="sel-divider" aria-hidden="true" />
+
+        <button
+          onClick={() => {
+            onAddVocab(selection);
+            onClose();
+          }}
+          className="sel-explain"
+          title="加入生词本"
+        >
+          <FiBookmark size={12} />
+          生词
+        </button>
 
         <button
           onClick={() => {

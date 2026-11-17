@@ -6,6 +6,7 @@ import { BookCard } from './BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
+  FiBookmark,
   FiBookOpen,
   FiClipboard,
   FiEdit3,
@@ -114,6 +115,15 @@ export function BookshelfPage() {
           >
             <FiClipboard size={13} aria-hidden="true" />
             练习回顾
+          </button>
+
+          <button
+            className="shelf-btn"
+            onClick={() => setCurrentView('vocab')}
+            title="打开生词本"
+          >
+            <FiBookmark size={13} aria-hidden="true" />
+            生词
           </button>
 
           <button

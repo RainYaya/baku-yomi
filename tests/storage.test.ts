@@ -69,6 +69,7 @@ test('createBackup includes durable data and excludes settings', () => {
   const storage = fakeStorage({
     'book-store': JSON.stringify({ state: { books: [1] }, version: 1 }),
     'practice-store': JSON.stringify({ state: { translations: {} }, version: 1 }),
+    'vocab-store': JSON.stringify({ state: { entries: [] }, version: 1 }),
     'baku-yomi-bookmarks': JSON.stringify({ state: { bookmarks: [] }, version: 1 }),
     'settings-store': JSON.stringify({ state: { apiKey: 'secret' } }),
   });
@@ -79,6 +80,10 @@ test('createBackup includes durable data and excludes settings', () => {
   assert.equal(backup.version, 1);
   assert.deepEqual(backup.data['book-store'], {
     state: { books: [1] },
+    version: 1,
+  });
+  assert.deepEqual(backup.data['vocab-store'], {
+    state: { entries: [] },
     version: 1,
   });
   assert.equal('settings-store' in backup.data, false);

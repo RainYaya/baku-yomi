@@ -3,6 +3,8 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { BookshelfPage } from './components/bookshelf/BookshelfPage';
 import { HomePage } from './components/home/HomePage';
 import { ReviewPage } from './components/review/ReviewPage';
+import { VocabPage } from './components/vocab/VocabPage';
+import { VocabDetailDialog } from './components/vocab/VocabDetailDialog';
 import { StorageHealthNotice } from './components/layout/StorageHealthNotice';
 import { useUIStore } from './stores/uiSlice';
 import { useBookStore } from './stores/bookSlice';
@@ -23,11 +25,14 @@ export default function App() {
         <BookshelfPage />
       ) : currentView === 'review' ? (
         <ReviewPage />
+      ) : currentView === 'vocab' ? (
+        <VocabPage />
       ) : (
         <HomePage />
       )}
       <StorageHealthNotice />
       <SettingsModal />
+      <VocabDetailDialog />
     </>
   );
 }
