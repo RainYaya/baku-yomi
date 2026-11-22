@@ -4,6 +4,11 @@ import type { AIProviderConfig, AIProviderType } from '../types';
 import { DEFAULT_MODELS } from '../types';
 import { createDebouncedStorage } from '../lib/debouncedStorage';
 import type { PairOrder } from '../lib/pairOrder';
+import {
+  VIDEO_SIDE_DEFAULT,
+  VIDEO_SIDE_MAX,
+  VIDEO_SIDE_MIN,
+} from '../lib/video/layout';
 
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
@@ -33,6 +38,8 @@ interface SettingsState {
   pairOrder: PairOrder;
   /** Video page visibility: both lines, Japanese only, or Chinese only. */
   videoLanguageMode: VideoLanguageMode;
+  /** Width of the video column on the video desk, in CSS pixels. */
+  videoSideWidth: number;
   /** Body typeface for Japanese reading; serif is best for long text. */
   readingFont: ReadingFont;
   vocabDensity: VocabDensity;
@@ -57,6 +64,7 @@ interface SettingsState {
   setReaderColumns: (columns: ReaderColumns) => void;
   setPairOrder: (order: PairOrder) => void;
   setVideoLanguageMode: (mode: VideoLanguageMode) => void;
+  setVideoSideWidth: (width: number) => void;
   setReadingFont: (font: ReadingFont) => void;
   setVocabDensity: (density: VocabDensity) => void;
   changeFontZoom: (direction: 1 | -1) => void;
@@ -104,6 +112,7 @@ export const useSettingsStore = create<SettingsState>()(
       // Chinese-first flip it once and every bilingual surface follows.
       pairOrder: 'ja-zh' as PairOrder,
       videoLanguageMode: 'both' as VideoLanguageMode,
+      videoSideWidth: VIDEO_SIDE_DEFAULT,
       readingFont: 'serif' as ReadingFont,
       // Scanning the wordbook beats admiring one entry: compact by default.
       vocabDensity: 'compact' as VocabDensity,
@@ -176,6 +185,14 @@ export const useSettingsStore = create<SettingsState>()(
       setPairOrder: (order) => set({ pairOrder: order }),
 
       setVideoLanguageMode: (mode) => set({ videoLanguageMode: mode }),
+
+      setVideoSideWidth: (width) =>
+        set({
+          videoSideWidth: Math.max(
+            VIDEO_SIDE_MIN,
+            Math.min(VIDEO_SIDE_MAX, Math.round(width))
+          ),
+        }),
 
       setReadingFont: (font) => set({ readingFont: font }),
 

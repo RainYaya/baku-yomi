@@ -40,6 +40,12 @@ import {
   youtubeEmbedUrl,
   youtubeToggleCommand,
 } from '../../lib/video/timeline';
+import {
+  clampVideoSideWidth,
+  VIDEO_SIDE_DEFAULT,
+  VIDEO_SIDE_MAX,
+  VIDEO_SIDE_MIN,
+} from '../../lib/video/layout';
 import { useTextSelection, type SelectionInfo } from '../../hooks/useTextSelection';
 import {
   createVocabDraftFromEntry,
@@ -88,6 +94,8 @@ export function VideoReadingView() {
   const setPairOrder = useSettingsStore((s) => s.setPairOrder);
   const videoLanguageMode = useSettingsStore((s) => s.videoLanguageMode);
   const setVideoLanguageMode = useSettingsStore((s) => s.setVideoLanguageMode);
+  const videoSideWidth = useSettingsStore((s) => s.videoSideWidth);
+  const setVideoSideWidth = useSettingsStore((s) => s.setVideoSideWidth);
   const fontZoom = useSettingsStore((s) => s.fontZoom);
   const changeFontZoom = useSettingsStore((s) => s.changeFontZoom);
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
@@ -108,6 +116,10 @@ export function VideoReadingView() {
   const deskInputRef = useRef<HTMLTextAreaElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const videoMainRef = useRef<HTMLElement | null>(null);
+  const resizeDragRef = useRef<{ startX: number; startWidth: number } | null>(
+    null
+  );
   const lineRefs = useRef<Array<HTMLLIElement | null>>([]);
   const relinkInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -116,6 +128,7 @@ export function VideoReadingView() {
   const [linkNote, setLinkNote] = useState<string | null>(null);
   const [playbackError, setPlaybackError] = useState(false);
   const [ytPlaying, setYtPlaying] = useState(false);
+  const [resizing, setResizing] = useState(false);
 
   const [inlineTab, setInlineTab] = useState<InlineTab>('practice');
   const [explainFragment, setExplainFragment] = useState('');
@@ -422,6 +435,10 @@ export function VideoReadingView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, expanded, pairs, isYouTube, ytPlaying]);
 
+  useEffect(() => {
+    return () => document.body.classList.remove('video-resizing');
+  }, []);
+
   if (!currentBook || !chapter) return null;
 
   const order = pairOrderLines(pairOrder);
@@ -443,6 +460,67 @@ export function VideoReadingView() {
   const zhLine = currentPair ? (
     <p className="video-current-zh">{currentPair.chinese || '暂无译文'}</p>
   ) : null;
+
+  const applySideWidth = (width: number) => {
+    const container = videoMainRef.current;
+    if (!container) {
+      setVideoSideWidth(width);
+      return;
+    }
+
+    // The CSS track spans one gap + the handle + the minimum transcript.
+    const styles = getComputedStyle(container);
+    const contentWidth =
+      container.clientWidth -
+      parseFloat(styles.paddingLeft) -
+      parseFloat(styles.paddingRight);
+    setVideoSideWidth(clampVideoSideWidth(width, contentWidth - 34));
+  };
+
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const side = event.currentTarget.nextElementSibling;
+    resizeDragRef.current = {
+      startX: event.clientX,
+      startWidth:
+        side instanceof HTMLElement
+          ? side.getBoundingClientRect().width
+          : videoSideWidth,
+    };
+    setResizing(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    document.body.classList.add('video-resizing');
+  };
+
+  const moveResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = resizeDragRef.current;
+    if (!drag) return;
+    applySideWidth(drag.startWidth + drag.startX - event.clientX);
+  };
+
+  const endResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeDragRef.current) return;
+    resizeDragRef.current = null;
+    setResizing(false);
+    document.body.classList.remove('video-resizing');
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const resizeByKeyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 80 : 24;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      applySideWidth(videoSideWidth + step);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      applySideWidth(videoSideWidth - step);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      applySideWidth(VIDEO_SIDE_DEFAULT);
+    }
+  };
 
   const renderPlayer = (expandedMode: boolean) => (
     <div className={`video-player${expandedMode ? ' is-expanded' : ''}`}>
@@ -597,7 +675,15 @@ export function VideoReadingView() {
         </div>
       </header>
 
-      <main className="video-main">
+      <main
+        ref={videoMainRef}
+        className={`video-main${resizing ? ' is-resizing' : ''}`}
+        style={
+          {
+            '--video-side-width': `${videoSideWidth}px`,
+          } as React.CSSProperties
+        }
+      >
         <section className="video-transcript">
           <header className="video-transcript-head">
             <div>
@@ -701,6 +787,26 @@ export function VideoReadingView() {
             })}
           </ol>
         </section>
+
+        <div
+          className="video-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整视频区域宽度"
+          aria-valuenow={videoSideWidth}
+          aria-valuemin={VIDEO_SIDE_MIN}
+          aria-valuemax={VIDEO_SIDE_MAX}
+          tabIndex={0}
+          onPointerDown={startResize}
+          onPointerMove={moveResize}
+          onPointerUp={endResize}
+          onPointerCancel={endResize}
+          onKeyDown={resizeByKeyboard}
+          onDoubleClick={() => applySideWidth(VIDEO_SIDE_DEFAULT)}
+          title="拖动调整视频区域宽度，双击恢复默认"
+        >
+          <span aria-hidden="true" />
+        </div>
 
         <aside className="video-side">
           <div
