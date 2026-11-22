@@ -1,4 +1,6 @@
 import { Hono } from 'hono';
+import { Readability } from '@mozilla/readability';
+import { parseHTML } from 'linkedom';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
@@ -109,11 +111,74 @@ export function decodeEntities(text: string): string {
   });
 }
 
-function extractArticle(html: string): { title: string; text: string } {
+function pageTitle(html: string): string {
   const titleMatch =
     /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html) ??
     /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i.exec(html);
-  const title = titleMatch ? decodeEntities(titleMatch[1]).replace(/\s+/g, ' ').trim() : '';
+  return titleMatch ? decodeEntities(titleMatch[1]).replace(/\s+/g, ' ').trim() : '';
+}
+
+// Lines that begin the site's "more to read" block rather than the article.
+const RELATED_HEADING =
+  /^(関連記事|関連リンク|おすすめ記事|関連コンテンツ|相关阅读|相关文章|推荐阅读|Related|SpecialPR|この記事の著者|この連載の記事|アクセスランキング)$/i;
+
+// Copyright and contact boilerplate that trails the body.
+const BOILERPLATE_LINE =
+  /^(このウェブサイトの著作権|掲載された記事.*無断転載|All rights reserved|Copyright|版权所有|Tel[:：]|Mail[:：])/i;
+
+// A recommendation sentence that note appends after the essay.
+const RECOMMENDATION_LINE = /^◯?こちらもおすすめ/;
+
+const MIN_READABLE_LENGTH = 40;
+
+const SHARE_TOKENS = new Set([
+  'share',
+  'シェア',
+  '共有',
+  '印刷',
+  '印刷する',
+  'ブックマーク',
+  '保存',
+]);
+
+/** Toolbar lines such as "Share 印刷する ブックマーク", not prose. */
+function isShareLine(line: string): boolean {
+  const tokens = line
+    .split(/[\s·|｜/]+/)
+    .filter(Boolean)
+    .map((token) => token.toLowerCase());
+  return tokens.length > 0 && tokens.length <= 5 && tokens.every((token) => SHARE_TOKENS.has(token));
+}
+
+function normalizeReadableText(raw: string, title: string): string {
+  let lines = raw
+    .replace(/\u200b+/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t\u00a0]+/g, ' ').trim())
+    .filter(Boolean)
+    .filter((line) => !isShareLine(line));
+
+  // Some pages leave the h1 in the body; the title is returned separately.
+  while (title && lines[0] === title) lines.shift();
+
+  const stop = lines.findIndex(
+    (line) => RELATED_HEADING.test(line) || RECOMMENDATION_LINE.test(line)
+  );
+  if (stop >= 0) lines = lines.slice(0, stop);
+
+  while (lines.length > 0 && BOILERPLATE_LINE.test(lines[lines.length - 1])) {
+    lines.pop();
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * The pre-Readability extractor, kept as a fallback for pages whose markup
+ * confuses the readability scoring (for example, script-rendered pages).
+ */
+function extractArticleFallback(html: string): { title: string; text: string } {
+  const title = pageTitle(html);
 
   let body = html
     .replace(/<!--[\s\S]*?-->/g, ' ')
@@ -140,6 +205,48 @@ function extractArticle(html: string): { title: string; text: string } {
     .trim();
 
   return { title, text };
+}
+
+/**
+ * Extract the body with Readability's content scoring. Layout chrome is
+ * removed before scoring so a page's nav or footer cannot outrank the
+ * article, and the result is trimmed at related-content headings. Anything
+ * Readability cannot make sense of falls back to the regex extractor.
+ */
+export function extractArticle(html: string): { title: string; text: string } {
+  try {
+    const { document } = parseHTML(html);
+    for (const lineBreak of document.querySelectorAll('br')) {
+      lineBreak.replaceWith(document.createTextNode('\n'));
+    }
+    // Readability's textContent joins blocks with no separator; keep the
+    // paragraph boundaries the original markup carried.
+    for (const block of document.querySelectorAll(
+      'p, div, section, article, li, blockquote, pre, h1, h2, h3, h4, h5, h6'
+    )) {
+      block.appendChild(document.createTextNode('\n'));
+    }
+    for (const element of document.querySelectorAll(
+      'nav, footer, aside, form, [role="navigation"], [role="banner"], [role="contentinfo"]'
+    )) {
+      element.remove();
+    }
+
+    const parsed = new Readability(document as unknown as Document, {
+      charThreshold: 140,
+    }).parse();
+    if (parsed) {
+      const title = parsed.title?.trim() || pageTitle(html);
+      const text = normalizeReadableText(parsed.textContent ?? '', title);
+      if (text.length >= MIN_READABLE_LENGTH) {
+        return { title, text };
+      }
+    }
+  } catch {
+    // Malformed markup — use the tolerant regex path below.
+  }
+
+  return extractArticleFallback(html);
 }
 
 export async function fetchOnce(url: URL): Promise<Response> {
