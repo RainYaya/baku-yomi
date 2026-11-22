@@ -1,7 +1,7 @@
 # 交接文档
 
 > 写给「换一台电脑继续开发」的自己。目标是：读完这一份，装好环境，就能接上上下文。
-> 最后更新：2026-11-17（main 分支，提交 `3ecc953`）
+> 最后更新：2026-11-20（main 分支，材料聚合器 M0–M6）
 
 ---
 
@@ -11,18 +11,24 @@ baku-yomi 是给中文母语者的日语阅读器：导入双语材料，逐句�
 
 阅读是主线，练习是第二步。没有强制进度、没有刷题模式、不会自动弹出练习。
 
-## 2. 当前状态（2026-11-17）
+## 2. 当前状态（2026-11-20）
 
 main 上已完成：
 
+- **材料聚合器**：材料库按来源筛选（书 / 链接 / AI 情景 / 字幕），书卡带来源徽章；「添加材料」统一收 EPUB、粘贴/URL、字幕、AI 情景、note。
 - **UI v2**：paper（纸页）/ night（夜读）两个主题，同一结构换皮；桌面 ≥1100px 是纸页内嵌 + 翻页双栏，手机/平板单栏。
-- **五个页面**：首页（桌面）、书架、阅读器（活页夹）、复习、生词本。
-- **材料导入**：EPUB、粘贴文本、URL 抓取；粘贴时可选择目标书，把新文章追加成章节。
+- **六个页面**：首页（桌面）、书架、阅读器（活页夹）、note 阅读源、练习记录、生词本。
+- **note 源**：默认话题 RSS，也可加作者/话题；点文章才抓正文，存进隐藏的 `note-book`，按 URL 去重；付费/空正文有明确状态；支持屏蔽词。
+- **AI 情景材料**：描述情景 → 生成双语对话/短文 → 预览可编辑 → 保存成普通书（`source.kind = 'ai'`，徽章「AI 情景」）。
+- **字幕导入**：`.srt` / `.vtt`，支持双语配对、单语日语、脏标签清理；一个文件一本书（一章）。
+- **练习记录**：全局记录所有材料的批改；`attempts` 保存每次回译，展开可看历史；可按材料/来源/分数/错误/时间筛选并搜索。
+- **随机练习**：从全部或筛选后的材料随机抽一句，避开最近 20 次；空池给出原因；批改后可「再抽一句」。
+- **材料导入**：EPUB、粘贴文本、URL 抓取；粘贴时可选择目标书/合集，把新文章追加成章节。天声人语这类每日文章：建一个合集，每天把 URL 或正文追加进去。
 - **阅读辅助**：划词标记颜色、划词「讲解」（读懂/拆句/用法/语感）、划词「生词」、TTS 连续朗读、书签跳转。
 - **生词本**：划词加入、AI 补全、紧凑/卡片两种列表、搜索筛选、ref 格式导出。
-- **数据**：全部存 localStorage，可导出/恢复 JSON 备份。
+- **数据**：全部存 localStorage，可导出/恢复 JSON 备份；练习数据 v1 会自动迁移到 attempts v2。
 
-测试 123 条通过，`tsc -b` 与 `pnpm build` 通过。
+测试 191 条通过，`tsc -b` 与 `pnpm build` 通过。
 
 ## 3. 跑起来
 
@@ -55,21 +61,23 @@ pnpm dev
 
 ```
 src/
-  App.tsx                 视图路由：home / bookshelf / reader / review / vocab
+  App.tsx                 视图路由：home / bookshelf / reader / note / review / vocab
   components/
     home/                 桌面首页
     bookshelf/            书架
     reader/               阅读器（ReadingView 最大，约 58KB，改动要小心）
     explain/              划词讲解内容
-    review/               复习页
+    review/               练习记录（全局 journal + 随机练习入口）
+    note/                 note 信息流、来源管理、文章行
     vocab/                生词本：列表页、卡片、紧凑行、详情卡
-    import/               EPUB 上传、粘贴/URL 导入
+    import/               EPUB、粘贴/URL、AI 情景、字幕导入
     settings/             设置弹窗（AI / 声音 / 数据）
     onboarding/           欢迎引导
     layout/               存储健康提示等
   stores/                 Zustand
     bookSlice.ts          书 / 章 / 句、当前书和章
-    practiceSlice.ts      回译练习 + 讲解缓存
+    practiceSlice.ts      回译练习、讲解缓存、每句 attempts
+    noteSlice.ts          note 来源、feed 缓存、已读/屏蔽
     vocabSlice.ts         生词本
     bookmarkSlice.ts      划词书签
     settingsSlice.ts      AI 供应商、TTS、阅读偏好、生词本密度
@@ -78,7 +86,10 @@ src/
     ai/                   AI 客户端（analyze、讲解、翻译）
     vocab/                生词本纯逻辑：草稿、去重、提示词、解析、筛选、导出、展示
     explain/              讲解视图选择
-    import/               文本材料、粘贴目标书
+    import/               文本材料、粘贴目标书、AI 情景、字幕解析
+    note/                 note feed/章节纯逻辑
+    practice/             journal 与随机练习纯逻辑
+    library/              来源分组、徽章、可见材料
     epub/  seed/  tts/  analysis/
     storage.ts            备份键、容量测量、导入导出
     clipboard.ts          复制（含 HTTP 环境的降级）
@@ -88,7 +99,7 @@ src/
   types/                  Book / Chapter / SentencePair / VocabEntry 等
 server/
   index.ts                Hono 入口，生产模式服务 dist/
-  routes/                 ai.ts（/analyze）、explain.ts、translate.ts、fetchUrl.ts
+  routes/                 ai.ts（/analyze）、explain.ts、translate.ts、fetchUrl.ts、note.ts（/api/note/feed、/api/note/article）
   providers.ts            AI 供应商构造
   tts/                    Microsoft / VOICEVOX
 ```
@@ -99,9 +110,18 @@ API：`POST /api/analyze`（通用 AI，返回 `{ text }`，限流 30 次/分）
 
 ```ts
 Book { id, title, author, chapters[], source?, demo?, chapterSeq? }
-Chapter { id, title, index, pairs[], sourceUrl? }
+Chapter { id, title, index, pairs[], sourceUrl?, note? }
 SentencePair { id, japanese, japaneseHtml?, chinese, chapterIndex, pairIndex,
                translationSource?, translationReviewed?, translatedAt? }
+
+来源（`Book.source.kind`）：
+
+```ts
+'epub' | 'text' | 'url' | 'collection' | 'note' | 'ai' | 'subtitle'
+```
+
+- `note` 书是隐藏的 `note-book`，打开的文章都是它的章节；`Chapter.note` 存 URL、作者、发布时间、来源话题。
+- `ai` 书带 `source.scenario`（用户原始情景）；`subtitle` 书一个文件一章。
 ```
 
 - `japaneseHtml` 保留 `<ruby>` 假名；划词 offset 一律基于纯文本 `pair.japanese`，忽略 ruby。
@@ -121,7 +141,8 @@ localStorage 键：
 | 键 | 内容 | 进备份 |
 | --- | --- | --- |
 | `book-store` | 书、章、句、当前书 | 是 |
-| `practice-store` | 回译练习、讲解缓存 | 是 |
+| `note-store` | note 来源、feed 缓存、已读/屏蔽 | 是 |
+| `practice-store` | 回译练习、讲解缓存、attempts | 是 |
 | `vocab-store` | 生词本 | 是 |
 | `baku-yomi-bookmarks` | 划词书签 | 是 |
 | `settings-store` | AI 供应商（含 key）、TTS、偏好 | 否（避免备份泄漏 key） |

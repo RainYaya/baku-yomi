@@ -4,17 +4,25 @@ import { useUIStore } from '../../stores/uiSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from '../bookshelf/BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
+import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
+import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
+import { AddMaterialMenu } from '../import/AddMaterialMenu';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import { buildTextBook } from '../../lib/import/textMaterial';
+import { sourceLabel, visibleBooks } from '../../lib/library/sources';
+import { useNoteUnread } from '../../hooks/useNoteFeed';
+import { usePracticeStore } from '../../stores/practiceSlice';
+import { buildJournalEntries, journalSummary } from '../../lib/practice/journal';
+import { useRandomPractice } from '../../hooks/useRandomPractice';
 import {
   FiArrowRight,
   FiBookmark,
   FiBookOpen,
   FiClipboard,
-  FiEdit3,
+  FiGlobe,
   FiSearch,
   FiSettings,
-  FiUpload,
+  FiShuffle,
 } from 'react-icons/fi';
 
 const RECENT_LIMIT = 6;
@@ -38,7 +46,8 @@ function sampleBook() {
 }
 
 export function HomePage() {
-  const books = useBookStore((s) => s.books);
+  const allBooks = useBookStore((s) => s.books);
+  const books = useMemo(() => visibleBooks(allBooks), [allBooks]);
   const currentBookId = useBookStore((s) => s.currentBookId);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
@@ -49,17 +58,24 @@ export function HomePage() {
   const createCollectionBook = useBookStore((s) => s.createCollectionBook);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const openSettings = useUIStore((s) => s.openSettings);
-  const { parseFile, parsing, status } = useEpubParser();
+  const { parseFile, parsing } = useEpubParser();
+  const { unread: noteUnread, sourceCount: noteSourceCount } = useNoteUnread();
+  const analyses = usePracticeStore((s) => s.analyses);
+  const translations = usePracticeStore((s) => s.translations);
+  const attempts = usePracticeStore((s) => s.attempts);
+  const { practiceRandom, emptyReason } = useRandomPractice();
 
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'title'>('recent');
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [subtitleOpen, setSubtitleOpen] = useState(false);
   const [collectionDialogBookId, setCollectionDialogBookId] = useState<string | null>(null);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionTitle, setNewCollectionTitle] = useState('');
 
   const openBook = (bookId: string) => {
-    const book = books.find((item) => item.id === bookId);
+    const book = allBooks.find((item) => item.id === bookId);
     if (book?.source?.kind === 'collection' && book.chapters.length === 0) {
       // An empty collection has nothing to read yet; add the first article.
       setCollectionDialogBookId(book.id);
@@ -77,14 +93,12 @@ export function HomePage() {
     setCurrentView('reader');
   };
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file?.name.endsWith('.epub')) void parseFile(file);
-    event.target.value = '';
+  const handleEpubFile = (file: File) => {
+    if (file.name.endsWith('.epub')) void parseFile(file);
   };
 
   const handleSample = () => {
-    const existing = books.find((book) => book.title === '吾輩は猫である（节选）');
+    const existing = allBooks.find((book) => book.title === '吾輩は猫である（节选）');
     if (existing) {
       openBook(existing.id);
       return;
@@ -95,15 +109,15 @@ export function HomePage() {
   };
 
   const continueBook = useMemo(() => {
-    if (books.length === 0) return null;
-    const active = books.find(
+    if (allBooks.length === 0) return null;
+    const active = allBooks.find(
       (book) => book.id === currentBookId && book.chapters.length > 0
     );
     if (active) return active;
-    const readable = books.filter((book) => book.chapters.length > 0);
-    if (readable.length === 0) return books[0];
+    const readable = allBooks.filter((book) => book.chapters.length > 0);
+    if (readable.length === 0) return allBooks[0];
     return [...readable].sort((a, b) => (b.importedAt ?? 0) - (a.importedAt ?? 0))[0];
-  }, [books, currentBookId]);
+  }, [allBooks, currentBookId]);
 
   const continueInfo = useMemo(() => {
     if (!continueBook) return null;
@@ -145,7 +159,7 @@ export function HomePage() {
       chinese: string;
     }> = [];
 
-    for (const book of books) {
+    for (const book of allBooks) {
       for (const chapter of book.chapters) {
         for (const pair of chapter.pairs) {
           const japanese = pair.japanese ?? '';
@@ -170,7 +184,15 @@ export function HomePage() {
       }
     }
     return hits;
-  }, [books, query]);
+  }, [allBooks, query]);
+
+  const journal = useMemo(
+    () =>
+      journalSummary(
+        buildJournalEntries(allBooks, analyses, translations, attempts ?? {})
+      ),
+    [allBooks, analyses, translations, attempts]
+  );
 
   const handleCreateCollection = () => {
     const id = createCollectionBook(newCollectionTitle);
@@ -201,11 +223,20 @@ export function HomePage() {
 
           <button
             className="shelf-btn"
+            onClick={() => practiceRandom()}
+            title="从所有材料里随机抽一句练习"
+          >
+            <FiShuffle size={13} />
+            随机练一句
+          </button>
+
+          <button
+            className="shelf-btn"
             onClick={() => setCurrentView('review')}
             title="查看批改记录"
           >
             <FiClipboard size={13} aria-hidden="true" />
-            练习回顾
+            练习记录
           </button>
 
           <button
@@ -217,21 +248,24 @@ export function HomePage() {
             生词
           </button>
 
-          <button className="shelf-btn" onClick={() => setPasteOpen(true)}>
-            <FiEdit3 size={13} aria-hidden="true" />
-            粘贴 / 文本
+          <button
+            className="shelf-btn"
+            onClick={() => setCurrentView('note')}
+            title="打开 note 阅读源"
+          >
+            <FiGlobe size={13} aria-hidden="true" />
+            note
+            {noteUnread > 0 && <span className="note-entry-count">{noteUnread}</span>}
           </button>
 
-          <label className="shelf-btn" data-import-state={status}>
-            <FiUpload size={13} aria-hidden="true" />
-            {parsing ? '导入中…' : '导入 EPUB'}
-            <input
-              type="file"
-              accept=".epub"
-              onChange={handleImport}
-              style={{ display: 'none' }}
-            />
-          </label>
+          <AddMaterialMenu
+            onEpub={handleEpubFile}
+            onPaste={() => setPasteOpen(true)}
+            onGenerate={() => setGenerateOpen(true)}
+            onSubtitle={() => setSubtitleOpen(true)}
+            onNote={() => setCurrentView('note')}
+            uploading={parsing}
+          />
 
           <button
             className="shelf-icon-btn"
@@ -246,6 +280,7 @@ export function HomePage() {
       </header>
 
       <main className="home-main">
+        {emptyReason && <p className="random-empty-note">{emptyReason}</p>}
         {books.length === 0 ? (
           <div className="home-empty">
             <div className="home-empty-copy">
@@ -256,19 +291,14 @@ export function HomePage() {
                 AI 会标出你的回译和原文的差距。没有双语也没关系——可以按章让 AI 译出来。
               </p>
               <div className="home-empty-actions">
-                <button className="shelf-btn primary" onClick={() => setPasteOpen(true)}>
-                  <FiEdit3 size={13} /> 粘贴第一篇文章
-                </button>
-                <label className="shelf-btn" data-import-state={status}>
-                  <FiUpload size={13} />
-                  {parsing ? '导入中…' : '导入 EPUB'}
-                  <input
-                    type="file"
-                    accept=".epub"
-                    onChange={handleImport}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+                <AddMaterialMenu
+                  onEpub={handleEpubFile}
+                  onPaste={() => setPasteOpen(true)}
+                  onGenerate={() => setGenerateOpen(true)}
+                  onSubtitle={() => setSubtitleOpen(true)}
+                  onNote={() => setCurrentView('note')}
+                  uploading={parsing}
+                />
                 <button className="quiet-link home-sample-link" onClick={handleSample}>
                   先用示例试读 <FiArrowRight size={12} />
                 </button>
@@ -302,6 +332,7 @@ export function HomePage() {
                   <h1>{continueBook.title}</h1>
                   <p className="home-continue-meta">
                     {continueBook.author || '未知作者'}
+                    {` · ${sourceLabel(continueBook)}`}
                     {continueInfo.chapter && ` · ${continueInfo.chapter.title}`}
                     {` · 读到 ${continueInfo.percent}%`}
                   </p>
@@ -317,26 +348,31 @@ export function HomePage() {
                 </div>
                 <div className="home-continue-side">
                   <span className="home-kicker">添加材料</span>
-                  <button className="home-add-card" onClick={() => setPasteOpen(true)}>
-                    <FiEdit3 size={16} />
-                    <span>
-                      <b>粘贴文章 / 导入文本</b>
-                      <small>网页、公众号、TXT、Markdown</small>
-                    </span>
-                  </button>
-                  <label className="home-add-card">
-                    <FiUpload size={16} />
-                    <span>
-                      <b>{parsing ? '正在导入…' : '导入双语 EPUB'}</b>
-                      <small>保留章节、注音和原有译文</small>
-                    </span>
-                    <input
-                      type="file"
-                      accept=".epub"
-                      onChange={handleImport}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
+                  <AddMaterialMenu
+                    onEpub={handleEpubFile}
+                    onPaste={() => setPasteOpen(true)}
+                    onGenerate={() => setGenerateOpen(true)}
+                    onSubtitle={() => setSubtitleOpen(true)}
+                    onNote={() => setCurrentView('note')}
+                    uploading={parsing}
+                    variant="card"
+                  />
+                  {noteSourceCount > 0 && (
+                    <button
+                      className="home-add-card note-home-card"
+                      onClick={() => setCurrentView('note')}
+                    >
+                      <FiGlobe size={16} />
+                      <span>
+                        <b>note 阅读源</b>
+                        <small>
+                          {noteUnread > 0
+                            ? `${noteUnread} 篇未读`
+                            : `${noteSourceCount} 个来源`}
+                        </small>
+                      </span>
+                    </button>
+                  )}
                 </div>
               </section>
             )}
@@ -344,8 +380,8 @@ export function HomePage() {
             <section className="home-library">
               <div className="home-library-head">
                 <div>
-                  <span className="home-kicker">书架</span>
-                  <h2>{query.trim() ? '搜索结果' : '最近的书'}</h2>
+                  <span className="home-kicker">材料库</span>
+                  <h2>{query.trim() ? '搜索结果' : '最近添加'}</h2>
                 </div>
                 <div className="home-library-tools">
                   {newCollectionOpen ? (
@@ -402,7 +438,7 @@ export function HomePage() {
                     className="shelf-btn"
                     onClick={() => setCurrentView('bookshelf')}
                   >
-                    全部书籍 <FiArrowRight size={12} />
+                    全部材料 <FiArrowRight size={12} />
                   </button>
                 </div>
               </div>
@@ -443,7 +479,7 @@ export function HomePage() {
 
               {library.length === 0 ? (
                 <p className="shelf-empty">
-                  <span>没有匹配的书，换个关键词试试。</span>
+                  <span>没有匹配的材料，换个关键词试试。</span>
                 </p>
               ) : (
                 <div className="bookshelf-grid home-grid">
@@ -453,11 +489,37 @@ export function HomePage() {
                 </div>
               )}
             </section>
+
+            <section className="home-journal">
+              <button
+                className="home-journal-card"
+                onClick={() => setCurrentView('review')}
+              >
+                <div className="home-journal-copy">
+                  <span className="home-kicker">练习记录</span>
+                  <h2>
+                    {journal.uniqueSentences > 0
+                      ? `${journal.uniqueSentences} 句练习过`
+                      : '还没有练习记录'}
+                  </h2>
+                  <p>
+                    {journal.uniqueSentences > 0
+                      ? `累计 ${journal.totalAttempts} 次批改 · ${journal.materials} 份材料 · 本周 ${journal.thisWeek} 次`
+                      : '在阅读里写一句回译，每次批改都会留在这里。'}
+                  </p>
+                </div>
+                <span className="home-journal-cta">
+                  打开记录 <FiArrowRight size={12} />
+                </span>
+              </button>
+            </section>
           </>
         )}
       </main>
 
       <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
+      <GenerateMaterialDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
+      <SubtitleImportDialog open={subtitleOpen} onClose={() => setSubtitleOpen(false)} />
       <PasteTextDialog
         open={collectionDialogBookId !== null}
         onClose={() => setCollectionDialogBookId(null)}

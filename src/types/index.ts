@@ -4,9 +4,17 @@ export type {
   BookSourceKind,
   Chapter,
   Collection,
+  NoteChapterMeta,
   SentencePair,
   TranslationSource,
 } from './book';
+export type {
+  NoteFeedItem,
+  NoteFeedSource,
+  NoteSource,
+  NoteSourceCache,
+  NoteSourceKind,
+} from './note';
 export type { AnalysisResult, AnalysisError, ErrorCategory } from './analysis';
 export type {
   VocabDraft,

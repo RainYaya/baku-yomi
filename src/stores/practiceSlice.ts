@@ -3,6 +3,11 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AnalysisResult, Book, ExplainAnswer, ExplainDepth } from '../types';
 import { createDebouncedStorage } from '../lib/debouncedStorage';
 import { migratePracticeData } from '../lib/pairMigration';
+import {
+  appendPracticeAttempt,
+  attemptsFromLegacy,
+  type PracticeAttempt,
+} from '../lib/practice/journal';
 
 /**
  * The practice store hydrates independently from the book store, so the
@@ -42,6 +47,8 @@ interface PracticeState {
   hints: Record<string, string>;
   /** pairId:action -> last explanation, so reopening does not re-bill the model. */
   explanations: Record<string, SavedExplanation>;
+  /** pairId -> submitted translations, newest last (max 10). */
+  attempts: Record<string, PracticeAttempt[]>;
 
   setTranslation: (pairId: string, text: string) => void;
   setAnalysis: (pairId: string, result: AnalysisResult) => void;
@@ -61,6 +68,7 @@ export const usePracticeStore = create<PracticeState>()(
       notes: {},
       hints: {},
       explanations: {},
+      attempts: {},
 
       setTranslation: (pairId, text) =>
         set((state) => ({
@@ -68,9 +76,24 @@ export const usePracticeStore = create<PracticeState>()(
         })),
 
       setAnalysis: (pairId, result) =>
-        set((state) => ({
-          analyses: { ...state.analyses, [pairId]: result },
-        })),
+        set((state) => {
+          const attempt: PracticeAttempt = {
+            translation:
+              result.userTranslation || state.translations[pairId] || '',
+            analysis: result,
+            at: result.analyzedAt || Date.now(),
+          };
+          return {
+            analyses: { ...state.analyses, [pairId]: result },
+            attempts: {
+              ...(state.attempts ?? {}),
+              [pairId]: appendPracticeAttempt(
+                state.attempts?.[pairId] ?? [],
+                attempt
+              ),
+            },
+          };
+        }),
 
       setNote: (pairId, text) =>
         set((state) => ({
@@ -92,18 +115,43 @@ export const usePracticeStore = create<PracticeState>()(
       getAnalysis: (pairId) => get().analyses[pairId] ?? null,
 
       clearPracticeData: () =>
-        set({ translations: {}, analyses: {}, notes: {}, hints: {}, explanations: {} }),
+        set({
+          translations: {},
+          analyses: {},
+          notes: {},
+          hints: {},
+          explanations: {},
+          attempts: {},
+        }),
     }),
     {
       name: 'practice-store',
-      version: 1,
+      version: 2,
       // Typing in the composer updates this store on every keystroke.
       storage: createJSONStorage(() => createDebouncedStorage()),
       migrate: (persistedState: unknown, version: number) => {
-        const saved = persistedState as Partial<PracticeState> | undefined;
-        if (!saved || version >= 1) return saved as PracticeState;
-        const { books, currentBookId } = readPersistedBookState();
-        return migratePracticeData(saved, books, currentBookId) as PracticeState;
+        let saved = persistedState as Partial<PracticeState> | undefined;
+        if (!saved) return saved as unknown as PracticeState;
+
+        if (version < 1) {
+          const { books, currentBookId } = readPersistedBookState();
+          saved = migratePracticeData(saved as PracticeState, books, currentBookId);
+        }
+
+        if (version < 2) {
+          saved = {
+            ...saved,
+            notes: saved.notes ?? {},
+            hints: saved.hints ?? {},
+            explanations: saved.explanations ?? {},
+            attempts: attemptsFromLegacy(
+              saved.analyses ?? {},
+              saved.translations ?? {}
+            ),
+          };
+        }
+
+        return saved as PracticeState;
       },
     }
   )

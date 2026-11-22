@@ -8,6 +8,7 @@ export const BACKUP_KEYS = [
   'practice-store',
   'vocab-store',
   'baku-yomi-bookmarks',
+  'note-store',
 ] as const;
 
 /** Keys counted toward the localStorage pressure indicator. */

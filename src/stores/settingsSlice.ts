@@ -7,6 +7,7 @@ import { createDebouncedStorage } from '../lib/debouncedStorage';
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
 export type ReaderColumns = 1 | 2;
+export type ReadingFont = 'serif' | 'sans' | 'ud' | 'maru' | 'klee';
 /** Card keeps the sentence big; compact fits many rows on one screen. */
 export type VocabDensity = 'card' | 'compact';
 
@@ -25,6 +26,8 @@ interface SettingsState {
   keywordMode: boolean;
   layoutMode: LayoutMode;
   readerColumns: ReaderColumns;
+  /** Body typeface for Japanese reading; serif is best for long text. */
+  readingFont: ReadingFont;
   vocabDensity: VocabDensity;
   fontZoom: number;
   voicevoxSpeakerId: number;
@@ -45,6 +48,7 @@ interface SettingsState {
   toggleKeywordMode: () => void;
   setLayoutMode: (mode: LayoutMode) => void;
   setReaderColumns: (columns: ReaderColumns) => void;
+  setReadingFont: (font: ReadingFont) => void;
   setVocabDensity: (density: VocabDensity) => void;
   changeFontZoom: (direction: 1 | -1) => void;
   setVoicevoxSpeakerId: (speakerId: number) => void;
@@ -87,6 +91,7 @@ export const useSettingsStore = create<SettingsState>()(
       // Desktop opens as an open book; tablets and phones stay single-column
       // because the reader only honours this at >=1100px.
       readerColumns: 2 as ReaderColumns,
+      readingFont: 'serif' as ReadingFont,
       // Scanning the wordbook beats admiring one entry: compact by default.
       vocabDensity: 'compact' as VocabDensity,
       fontZoom: 1,
@@ -154,6 +159,8 @@ export const useSettingsStore = create<SettingsState>()(
       setLayoutMode: (mode) => set({ layoutMode: mode }),
 
       setReaderColumns: (columns) => set({ readerColumns: columns }),
+
+      setReadingFont: (font) => set({ readingFont: font }),
 
       setVocabDensity: (density) => set({ vocabDensity: density }),
 

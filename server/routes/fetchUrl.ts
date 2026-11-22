@@ -45,7 +45,7 @@ function isBlockedHostname(hostname: string): boolean {
   );
 }
 
-async function assertPublicUrl(raw: string): Promise<URL> {
+export async function assertPublicUrl(raw: string): Promise<URL> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -79,7 +79,7 @@ async function assertPublicUrl(raw: string): Promise<URL> {
   return url;
 }
 
-function decodeEntities(text: string): string {
+export function decodeEntities(text: string): string {
   const named: Record<string, string> = {
     nbsp: ' ',
     amp: '&',
@@ -142,7 +142,7 @@ function extractArticle(html: string): { title: string; text: string } {
   return { title, text };
 }
 
-async function fetchOnce(url: URL): Promise<Response> {
+export async function fetchOnce(url: URL): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {

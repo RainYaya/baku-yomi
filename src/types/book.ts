@@ -22,12 +22,23 @@ export interface Collection {
   createdAt: number;
 }
 
-export type BookSourceKind = 'epub' | 'text' | 'url' | 'collection';
+export type BookSourceKind =
+  | 'epub'
+  | 'text'
+  | 'url'
+  | 'collection'
+  | 'note'
+  | 'ai'
+  | 'subtitle';
 
 export interface BookSource {
   kind: BookSourceKind;
   url?: string;
   site?: string;
+  /** The user's prompt for an AI-generated material. */
+  scenario?: string;
+  /** Original subtitle file name. */
+  fileName?: string;
 }
 
 export interface Chapter {
@@ -36,6 +47,17 @@ export interface Chapter {
   index: number;
   pairs: SentencePair[];
   sourceUrl?: string;
+  /** Present when this chapter is an opened note article. */
+  note?: NoteChapterMeta;
+}
+
+export interface NoteChapterMeta {
+  url: string;
+  author: string;
+  publishedAt: number;
+  sourceKind: 'hashtag' | 'author';
+  sourceKey: string;
+  tags?: string[];
 }
 
 export type TranslationSource = 'ai' | 'human' | 'imported';

@@ -5,15 +5,23 @@ import {
   resolvePasteTargetId,
   type PasteDestination,
 } from '../../lib/import/pasteDestination';
+import { visibleBooks } from '../../lib/library/sources';
 import { useBookStore } from '../../stores/bookSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { registerKeyboardHandler } from '../../lib/keyboard';
+import type { NoteChapterMeta } from '../../types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   /** When set, append the pasted text as a chapter instead of creating a book. */
   targetBookId?: string;
+  /**
+   * Manual fallback for a note article that could not be fetched. The pasted
+   * body becomes a note chapter with this URL, so a later successful fetch
+   * dedupes instead of creating a second copy.
+   */
+  noteContext?: { title?: string; note: NoteChapterMeta };
 }
 
 const MAX_TEXT_BYTES = 4 * 1024 * 1024;
@@ -26,9 +34,11 @@ const MAX_TEXT_BYTES = 4 * 1024 * 1024;
  * means the translation step is the only part that needs AI, and importing
  * never depends on a site's markup or on a scraper.
  */
-export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
+export function PasteTextDialog({ open, onClose, targetBookId, noteContext }: Props) {
   const addBook = useBookStore((s) => s.addBook);
   const appendTextChapter = useBookStore((s) => s.appendTextChapter);
+  const ensureNoteBook = useBookStore((s) => s.ensureNoteBook);
+  const appendNoteChapter = useBookStore((s) => s.appendNoteChapter);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
   const books = useBookStore((s) => s.books);
@@ -47,10 +57,11 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
   const titleRef = useRef<HTMLInputElement>(null);
 
   // Collections first, then the most recently imported books: the target is
-  // usually the collection the reader is already adding articles to.
+  // usually the collection the reader is already adding articles to. The
+  // hidden note book is never a paste target.
   const bookOptions = useMemo(
     () =>
-      [...books].sort((a, b) => {
+      [...visibleBooks(books)].sort((a, b) => {
         const aCollection = a.source?.kind === 'collection' ? 0 : 1;
         const bCollection = b.source?.kind === 'collection' ? 0 : 1;
         if (aCollection !== bCollection) return aCollection - bCollection;
@@ -59,8 +70,14 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
     [books]
   );
 
+  const targetBook = targetBookId
+    ? books.find((book) => book.id === targetBookId)
+    : undefined;
+  const safeTargetBookId =
+    targetBook?.source?.kind === 'note' ? undefined : targetBookId;
+
   const appendTargetId = resolvePasteTargetId({
-    targetBookId,
+    targetBookId: safeTargetBookId,
     destination,
     selectedBookId: selectedBookId ?? currentBookId ?? undefined,
     books: bookOptions,
@@ -75,6 +92,16 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
     const frame = requestAnimationFrame(() => titleRef.current?.focus());
     return () => cancelAnimationFrame(frame);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !noteContext) return;
+    setTitle(noteContext.title ?? '');
+    setAuthor(noteContext.note.author ?? '');
+    setText('');
+    setUrl('');
+    setError(null);
+    setUrlError(null);
+  }, [open, noteContext]);
 
   useEffect(() => {
     if (!open) return;
@@ -156,7 +183,18 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
       return;
     }
     try {
-      if (appendTargetId) {
+      if (noteContext) {
+        const bookId = ensureNoteBook();
+        const appended = appendNoteChapter({
+          bookId,
+          title: title.trim() || noteContext.title || 'note',
+          text,
+          note: noteContext.note,
+        });
+        if (!appended) throw new Error('没有可导入的正文。');
+        setCurrentBook(bookId);
+        setCurrentChapter(appended.chapterIndex);
+      } else if (appendTargetId) {
         const appended = appendTextChapter(appendTargetId, { title, text });
         if (!appended) {
           throw new Error(
@@ -190,11 +228,13 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
           <div>
             <span className="paste-kicker">ADD MATERIAL</span>
             <h2 id="paste-title">
-              {appendTarget
-                ? `添加文章到《${appendTarget.title}》`
-                : isAppend
-                  ? '添加文章'
-                  : '粘贴文章或导入文本'}
+              {noteContext
+                ? '手动粘贴 note 正文'
+                : appendTarget
+                  ? `添加文章到《${appendTarget.title}》`
+                  : isAppend
+                    ? '添加文章'
+                    : '粘贴文章或导入文本'}
             </h2>
           </div>
           <button className="settings-close-btn" onClick={onClose} aria-label="关闭">
@@ -234,7 +274,7 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
             {urlError && <p className="paste-error">{urlError}</p>}
           </div>
 
-          {!targetBookId && bookOptions.length > 0 && (
+          {!targetBookId && !noteContext && bookOptions.length > 0 && (
             <div className="paste-destination">
               <span className="paste-destination-label">导入到</span>
               <label>
@@ -278,7 +318,7 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
 
           <div className="paste-row">
             <label className="paste-field">
-              <span>{isAppend ? '文章标题' : '标题'}</span>
+              <span>{isAppend || noteContext ? '文章标题' : '标题'}</span>
               <input
                 ref={titleRef}
                 value={title}
@@ -286,7 +326,7 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
                 placeholder="留空时使用第一行标题或「正文」"
               />
             </label>
-            {!isAppend && (
+            {!isAppend && !noteContext && (
               <label className="paste-field paste-field-author">
                 <span>作者（可选）</span>
                 <input
@@ -340,11 +380,13 @@ export function PasteTextDialog({ open, onClose, targetBookId }: Props) {
             取消
           </button>
           <button className="stamp" onClick={handleImport} disabled={!text.trim()}>
-            {isAppend
-              ? appendTarget?.source?.kind === 'collection'
-                ? '加入合集'
-                : '加入这本书'
-              : '放进书架'}
+            {noteContext
+              ? '存进 note'
+              : isAppend
+                ? appendTarget?.source?.kind === 'collection'
+                  ? '加入合集'
+                  : '加入这本书'
+                : '放进书架'}
           </button>
         </footer>
       </section>

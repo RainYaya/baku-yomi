@@ -4,6 +4,7 @@ import { usePracticeStore } from '../../stores/practiceSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { useBookStore } from '../../stores/bookSlice';
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { useRandomPractice } from '../../hooks/useRandomPractice';
 import { isKeylessProvider } from '../../types';
 import { generateBacktranslateHints } from '../../lib/ai/client';
 import { FeedbackNotes, scoreOf } from '../analysis/FeedbackNotes';
@@ -56,6 +57,7 @@ export function InlinePracticeCard({
   const setPairTranslationReviewed = useBookStore((s) => s.setPairTranslationReviewed);
   const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
   const { analyze } = useAnalysis();
+  const { practiceRandom } = useRandomPractice();
 
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -295,15 +297,24 @@ export function InlinePracticeCard({
             )}
 
             {analysis && (
-              <p className="note-foot">
-                AI 批改 ·{' '}
-                {new Date(analysis.analyzedAt).toLocaleString('zh-CN', {
-                  month: 'numeric',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
+              <div className="inline-next-random">
+                <button
+                  className="quiet-link"
+                  onClick={() => practiceRandom()}
+                  title="从所有材料里再随机抽一句"
+                >
+                  再抽一句
+                </button>
+                <p className="note-foot">
+                  AI 批改 ·{' '}
+                  {new Date(analysis.analyzedAt).toLocaleString('zh-CN', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
             )}
           </div>
         </div>

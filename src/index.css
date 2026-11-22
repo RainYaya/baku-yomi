@@ -75,6 +75,28 @@ body.night {
   --font-hand: "Newsreader", "Noto Serif SC", serif;
 }
 
+/* Reading typeface choice. These rules come after the theme blocks so the
+   chosen family wins in both paper and night without !important. */
+body[data-reading-font="serif"] {
+  --font-reading: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif SC", serif;
+}
+
+body[data-reading-font="sans"] {
+  --font-reading: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Noto Sans SC", sans-serif;
+}
+
+body[data-reading-font="ud"] {
+  --font-reading: "BIZ UDPGothic", "Noto Sans JP", "Hiragino Sans", "Noto Sans SC", sans-serif;
+}
+
+body[data-reading-font="maru"] {
+  --font-reading: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Noto Sans JP", "Noto Sans SC", sans-serif;
+}
+
+body[data-reading-font="klee"] {
+  --font-reading: "Klee One", "Hiragino Maru Gothic ProN", "Noto Sans JP", "Noto Sans SC", sans-serif;
+}
+
 *,
 *::before,
 *::after {

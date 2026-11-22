@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:note="https://note.com/rss" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>seoyun</title>
+    <link>https://note.com/seoyun</link>
+    <item>
+      <title>朝の散歩と、小さな発見</title>
+      <link>https://note.com/seoyun/n/n1234abcd</link>
+      <pubDate>Tue, 18 Nov 2026 09:00:00 +0900</pubDate>
+      <description><![CDATA[<p>朝の空気は<strong>ひんやり</strong>していて、&amp; とても気持ちがいい。</p>]]></description>
+      <note:creatorName>seoyun</note:creatorName>
+    </item>
+    <item>
+      <title>CDATA と実体 &amp; のテスト</title>
+      <link><![CDATA[https://note.com/seoyun/n/n5678efgh]]></link>
+      <pubDate>Mon, 17 Nov 2026 21:30:00 +0900</pubDate>
+      <description>夕飯は&lt;カレー&gt;にした。&nbsp;おいしかった。</description>
+      <dc:creator>seoyun</dc:creator>
+    </item>
+    <item>
+      <title>壊れた項目</title>
+      <pubDate>not-a-date</pubDate>
+      <description>リンクがない</description>
+    </item>
+  </channel>
+</rss>

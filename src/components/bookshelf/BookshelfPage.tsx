@@ -4,21 +4,26 @@ import { useUIStore } from '../../stores/uiSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from './BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
+import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
+import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
+import { AddMaterialMenu } from '../import/AddMaterialMenu';
+import { booksInGroup, visibleBooks, type LibraryFilter } from '../../lib/library/sources';
+import { useNoteUnread } from '../../hooks/useNoteFeed';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import {
   FiBookmark,
   FiBookOpen,
   FiClipboard,
-  FiEdit3,
+  FiGlobe,
   FiSearch,
   FiSettings,
-  FiUpload,
 } from 'react-icons/fi';
 
 type SortBy = 'lastImported' | 'title' | 'progress';
 
 export function BookshelfPage() {
-  const books = useBookStore((s) => s.books);
+  const allBooks = useBookStore((s) => s.books);
+  const books = useMemo(() => visibleBooks(allBooks), [allBooks]);
   const currentBookId = useBookStore((s) => s.currentBookId);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
@@ -26,11 +31,15 @@ export function BookshelfPage() {
   const readingProgress = useBookStore((s) => s.readingProgress);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const openSettings = useUIStore((s) => s.openSettings);
-  const { parseFile, parsing, status } = useEpubParser();
+  const { parseFile, parsing } = useEpubParser();
+  const { unread: noteUnread } = useNoteUnread();
 
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('lastImported');
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [subtitleOpen, setSubtitleOpen] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<LibraryFilter>('all');
 
   const totalPairs = useMemo(
     () => books.reduce(
@@ -42,8 +51,9 @@ export function BookshelfPage() {
 
   const filteredBooks = useMemo(() => {
     const lowerQuery = query.trim().toLowerCase();
+    const grouped = booksInGroup(books, sourceFilter);
 
-    const list = books.filter((b) => {
+    const list = grouped.filter((b) => {
       if (!lowerQuery) return true;
       return (
         b.title.toLowerCase().includes(lowerQuery) ||
@@ -68,14 +78,21 @@ export function BookshelfPage() {
     }
 
     return [...list].sort((a, b) => (b.importedAt ?? 0) - (a.importedAt ?? 0));
-  }, [books, query, sortBy, readingProgress]);
+  }, [books, query, sortBy, readingProgress, sourceFilter]);
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file?.name.endsWith('.epub')) {
+  const sourceChips = [
+    { id: 'all' as const, label: '全部', count: books.length },
+    { id: 'book' as const, label: '书', count: booksInGroup(books, 'book').length },
+    { id: 'link' as const, label: '链接', count: booksInGroup(books, 'link').length },
+    { id: 'collection' as const, label: '合集', count: booksInGroup(books, 'collection').length },
+    { id: 'ai' as const, label: 'AI 情景', count: booksInGroup(books, 'ai').length },
+    { id: 'subtitle' as const, label: '字幕', count: booksInGroup(books, 'subtitle').length },
+  ].filter((chip) => chip.id === 'all' || chip.count > 0);
+
+  const handleEpubFile = (file: File) => {
+    if (file.name.endsWith('.epub')) {
       void parseFile(file);
     }
-    e.target.value = '';
   };
 
   const openBook = (bookId: string) => {
@@ -114,7 +131,7 @@ export function BookshelfPage() {
             title="查看批改记录"
           >
             <FiClipboard size={13} aria-hidden="true" />
-            练习回顾
+            练习记录
           </button>
 
           <button
@@ -128,23 +145,22 @@ export function BookshelfPage() {
 
           <button
             className="shelf-btn"
-            onClick={() => setPasteOpen(true)}
-            title="粘贴文章或导入 TXT / Markdown"
+            onClick={() => setCurrentView('note')}
+            title="打开 note 阅读源"
           >
-            <FiEdit3 size={13} aria-hidden="true" />
-            粘贴 / 文本
+            <FiGlobe size={13} aria-hidden="true" />
+            note
+            {noteUnread > 0 && <span className="note-entry-count">{noteUnread}</span>}
           </button>
 
-          <label className="shelf-btn" data-import-state={status}>
-            <FiUpload size={13} aria-hidden="true" />
-            {parsing ? '导入中…' : '导入 EPUB'}
-            <input
-              type="file"
-              accept=".epub"
-              onChange={handleImport}
-              style={{ display: 'none' }}
-            />
-          </label>
+          <AddMaterialMenu
+            onEpub={handleEpubFile}
+            onPaste={() => setPasteOpen(true)}
+            onGenerate={() => setGenerateOpen(true)}
+            onSubtitle={() => setSubtitleOpen(true)}
+            onNote={() => setCurrentView('note')}
+            uploading={parsing}
+          />
 
           <button
             className="shelf-icon-btn"
@@ -190,25 +206,30 @@ export function BookshelfPage() {
             )}
           </nav>
 
-          <div className="shelf-rail-foot">
+          <div className="shelf-rail-section">来源</div>
+          <nav className="shelf-nav" aria-label="note 来源">
             <button
-              className="shelf-btn"
-              onClick={() => setPasteOpen(true)}
-              title="粘贴文章或导入 TXT / Markdown"
+              className="shelf-nav-btn"
+              onClick={() => setCurrentView('note')}
+              title="打开 note 阅读源"
             >
-              <FiEdit3 size={13} aria-hidden="true" />
-              粘贴 / 文本
+              <FiGlobe size={13} aria-hidden="true" />
+              <span className="truncate">note</span>
+              {noteUnread > 0 && (
+                <span className="shelf-nav-count">{noteUnread}</span>
+              )}
             </button>
-            <label className="shelf-btn" data-import-state={status}>
-              <FiUpload size={13} aria-hidden="true" />
-              {parsing ? '导入中…' : '导入 EPUB'}
-              <input
-                type="file"
-                accept=".epub"
-                onChange={handleImport}
-                style={{ display: 'none' }}
-              />
-            </label>
+          </nav>
+
+          <div className="shelf-rail-foot">
+            <AddMaterialMenu
+              onEpub={handleEpubFile}
+              onPaste={() => setPasteOpen(true)}
+              onGenerate={() => setGenerateOpen(true)}
+              onSubtitle={() => setSubtitleOpen(true)}
+              onNote={() => setCurrentView('note')}
+              uploading={parsing}
+            />
           </div>
         </aside>
 
@@ -234,33 +255,40 @@ export function BookshelfPage() {
             </div>
           </div>
 
+          <div className="source-chips" role="tablist" aria-label="材料类型">
+            {sourceChips.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                role="tab"
+                aria-selected={sourceFilter === chip.id}
+                className={`source-chip${sourceFilter === chip.id ? ' active' : ''}`}
+                onClick={() => setSourceFilter(chip.id)}
+              >
+                {chip.label}
+                <span className="source-chip-count">{chip.count}</span>
+              </button>
+            ))}
+          </div>
+
           {filteredBooks.length === 0 ? (
             <div className="shelf-empty">
               <p>
                 {books.length === 0
-                  ? '你的书架还是空的，先导入第一本 EPUB 吧。'
-                  : '没有匹配的书，换个关键词试试。'}
+                  ? '材料库还是空的，先添加一篇材料吧。'
+                  : sourceFilter !== 'all'
+                    ? '这个类型下还没有材料。'
+                    : '没有匹配的书，换个关键词试试。'}
               </p>
               {books.length === 0 && (
-                <>
-                  <button
-                    className="shelf-btn primary"
-                    onClick={() => setPasteOpen(true)}
-                  >
-                    <FiEdit3 size={13} aria-hidden="true" />
-                    粘贴第一篇文章
-                  </button>
-                  <label className="shelf-btn" data-import-state={status}>
-                    <FiUpload size={13} aria-hidden="true" />
-                    {parsing ? '导入中…' : '导入 EPUB'}
-                    <input
-                      type="file"
-                      accept=".epub"
-                      onChange={handleImport}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-                </>
+                <AddMaterialMenu
+                  onEpub={handleEpubFile}
+                  onPaste={() => setPasteOpen(true)}
+                  onGenerate={() => setGenerateOpen(true)}
+                  onSubtitle={() => setSubtitleOpen(true)}
+                  onNote={() => setCurrentView('note')}
+                  uploading={parsing}
+                />
               )}
             </div>
           ) : (
@@ -274,6 +302,8 @@ export function BookshelfPage() {
       </div>
 
       <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
+      <GenerateMaterialDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
+      <SubtitleImportDialog open={subtitleOpen} onClose={() => setSubtitleOpen(false)} />
     </section>
   );
 }

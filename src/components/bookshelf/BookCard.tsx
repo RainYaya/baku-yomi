@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Book } from '../../types';
 import { useBookStore } from '../../stores/bookSlice';
+import { sourceLabel } from '../../lib/library/sources';
 import { FiPlay, FiEdit2, FiTrash2, FiLayers, FiFileText } from 'react-icons/fi';
 
 interface Props {
@@ -122,7 +123,15 @@ export function BookCard({ book, onOpen }: Props) {
           </div>
         ) : (
           <>
-            <h3 className="bookshelf-title" title={book.title}>{book.title}</h3>
+            <div className="bookshelf-title-row">
+              <h3 className="bookshelf-title" title={book.title}>{book.title}</h3>
+              <span
+                className="bookshelf-source-badge"
+                data-source={book.source?.kind ?? 'book'}
+              >
+                {sourceLabel(book)}
+              </span>
+            </div>
             <p className="bookshelf-subtitle">{authorName(book.author)}</p>
 
             {/* Stats row */}

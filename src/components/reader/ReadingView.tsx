@@ -21,6 +21,7 @@ import { ShortcutHelp } from './ShortcutHelp';
 import { SelectionPopover } from './SelectionPopover';
 import { BookmarkList } from './BookmarkList';
 import { PasteTextDialog } from '../import/PasteTextDialog';
+import { ReadingFontMenu } from './ReadingFontMenu';
 import { useTextSelection, type SelectionInfo } from '../../hooks/useTextSelection';
 import { useBookmarkStore } from '../../stores/bookmarkSlice';
 import { useVocabStore } from '../../stores/vocabSlice';
@@ -37,6 +38,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiColumns,
+  FiExternalLink,
   FiPause,
   FiPlay,
   FiPlus,
@@ -1269,12 +1271,14 @@ export function ReadingView() {
             <div className="binder-sheet">
               <div className="read-empty">
                 <p className="chapter-byline">这本书还没有可阅读的章节。</p>
-                <button
-                  className="shelf-btn"
-                  onClick={() => setAddArticleOpen(true)}
-                >
-                  <FiPlus size={13} /> 添加文章
-                </button>
+                {currentBook.source?.kind !== 'note' && (
+                  <button
+                    className="shelf-btn"
+                    onClick={() => setAddArticleOpen(true)}
+                  >
+                    <FiPlus size={13} /> 添加文章
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1289,6 +1293,7 @@ export function ReadingView() {
   }
 
   const isCollection = currentBook.source?.kind === 'collection';
+  const isNoteBook = currentBook.source?.kind === 'note';
   const savedProgress = getReadingProgress(currentChapter.id);
   const totalPairs = currentChapter.pairs.length;
   const currentIndex = Math.min(totalPairs, Math.max(1, savedProgress + 1));
@@ -1305,6 +1310,22 @@ export function ReadingView() {
           : '未知作者'}{' '}
         · {currentChapter.pairs.length} 句
       </p>
+      {currentChapter.note && (
+        <p className="chapter-note-source">
+          note · {currentChapter.note.author || '未知作者'}
+          {currentChapter.note.publishedAt
+            ? ` · ${new Date(currentChapter.note.publishedAt).toLocaleDateString('ja-JP')}`
+            : ''}
+          {' · '}
+          <a
+            href={currentChapter.note.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            原文 <FiExternalLink size={11} />
+          </a>
+        </p>
+      )}
       <ChapterTranslationBar book={currentBook} chapter={currentChapter} />
     </>
   );
@@ -1406,7 +1427,6 @@ export function ReadingView() {
             <span key={index} className="hole" />
           ))}
         </div>
-        <div className="margin-rule" aria-hidden="true" />
 
         <button
           className="binder-label binder-label-btn"
@@ -1515,7 +1535,7 @@ export function ReadingView() {
                 );
               })
             )}
-            {!tocQuery.trim() && (
+            {!tocQuery.trim() && !isNoteBook && (
               <button
                 className="chapter-menu-add"
                 onClick={() => {
@@ -1573,6 +1593,7 @@ export function ReadingView() {
           >
             A+
           </button>
+          <ReadingFontMenu />
           {isDesktop && (
             <button
               className="binder-icon-btn"

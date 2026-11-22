@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Book, Chapter, Collection, SentencePair } from '../types';
+import type { Book, Chapter, Collection, NoteChapterMeta, SentencePair } from '../types';
 import { createDebouncedStorage } from '../lib/debouncedStorage';
 import { buildTextChapters } from '../lib/import/textMaterial';
+import { buildNoteChapter } from '../lib/note/chapter';
+import { normalizeNoteUrl } from '../lib/note/feed';
 import { createBookId } from '../lib/id';
 import { migrateBookPairIds } from '../lib/pairMigration';
 import { buildDemoLibrary } from '../lib/seed/demoLibrary';
 import { fetchLocalSeedLibrary } from '../lib/seed/localSeed';
+
+export const NOTE_BOOK_ID = 'note-book';
 
 interface BookState {
   books: Book[];
@@ -37,6 +41,15 @@ interface BookState {
     bookId: string,
     input: { title?: string; text: string }
   ) => { chapterIndex: number } | null;
+  /** Create the hidden book that holds opened note articles; idempotent. */
+  ensureNoteBook: () => string;
+  /** Add an opened note article as a chapter, deduped by its URL. */
+  appendNoteChapter: (input: {
+    bookId: string;
+    title: string;
+    text: string;
+    note: NoteChapterMeta;
+  }) => { chapterIndex: number; created: boolean } | null;
   removeChapterFromBook: (bookId: string, chapterIndex: number) => void;
   moveChapterInBook: (bookId: string, from: number, to: number) => void;
   createCollection: (title: string) => string;
@@ -217,6 +230,65 @@ export const useBookStore = create<BookState>()(
           ),
         }));
         return { chapterIndex: book.chapters.length };
+      },
+
+      ensureNoteBook: () => {
+        const existing = get().books.find((book) => book.id === NOTE_BOOK_ID);
+        if (existing) return NOTE_BOOK_ID;
+
+        const book: Book = {
+          id: NOTE_BOOK_ID,
+          title: 'note',
+          author: 'note.com',
+          chapters: [],
+          importedAt: Date.now(),
+          source: { kind: 'note' },
+          chapterSeq: 0,
+        };
+        set((state) => ({ books: [...state.books, book] }));
+        return NOTE_BOOK_ID;
+      },
+
+      appendNoteChapter: ({ bookId, title, text, note }) => {
+        const book = get().books.find((item) => item.id === bookId);
+        if (!book) return null;
+
+        const normalized = normalizeNoteUrl(note.url);
+        const existing = book.chapters.find(
+          (chapter) => chapter.note && normalizeNoteUrl(chapter.note.url) === normalized
+        );
+        if (existing) {
+          return { chapterIndex: existing.index, created: false };
+        }
+
+        const seq =
+          book.chapterSeq ??
+          book.chapters.reduce(
+            (max, chapter) => Math.max(max, chapter.index + 1),
+            0
+          );
+        const chapter = buildNoteChapter({
+          bookId,
+          title,
+          text,
+          note,
+          seq,
+          index: book.chapters.length,
+        });
+        if (!chapter) return null;
+
+        set((state) => ({
+          books: state.books.map((item) =>
+            item.id === bookId
+              ? {
+                  ...item,
+                  chapters: [...item.chapters, chapter],
+                  chapterSeq: seq + 1,
+                }
+              : item
+          ),
+        }));
+        return { chapterIndex: chapter.index, created: true };
       },
 
       removeChapterFromBook: (bookId, chapterIndex) =>
