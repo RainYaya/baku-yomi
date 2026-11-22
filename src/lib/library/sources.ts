@@ -6,6 +6,7 @@ export type SourceGroup =
   | 'note'
   | 'ai'
   | 'subtitle'
+  | 'video'
   | 'link'
   | 'collection';
 export type LibraryFilter = 'all' | SourceGroup;
@@ -18,6 +19,7 @@ const GROUP_OF: Record<BookSourceKind, SourceGroup> = {
   note: 'note',
   ai: 'ai',
   subtitle: 'subtitle',
+  video: 'video',
 };
 
 const LABEL_OF: Record<BookSourceKind, string> = {
@@ -28,6 +30,7 @@ const LABEL_OF: Record<BookSourceKind, string> = {
   note: 'note',
   ai: 'AI 情景',
   subtitle: '字幕',
+  video: '视频',
 };
 
 function kindOf(book: Book): BookSourceKind | undefined {
@@ -65,6 +68,7 @@ const GROUP_LABEL: Record<SourceGroup, string> = {
   collection: '合集',
   ai: 'AI 情景',
   subtitle: '字幕',
+  video: '视频',
   note: 'note',
 };
 

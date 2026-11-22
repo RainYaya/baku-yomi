@@ -7,6 +7,8 @@ export type {
   NoteChapterMeta,
   SentencePair,
   TranslationSource,
+  VideoProvider,
+  VideoSource,
 } from './book';
 export type {
   NoteFeedItem,

@@ -5,6 +5,7 @@ import {
   type ReadingFont,
 } from '../../stores/settingsSlice';
 import { registerKeyboardHandler } from '../../lib/keyboard';
+import { PairOrderToggle } from '../common/PairOrderToggle';
 
 const FONTS: Array<{
   id: ReadingFont;
@@ -81,6 +82,11 @@ export function ReadingFontMenu() {
               </span>
             </button>
           ))}
+
+          <div className="reading-font-order">
+            <span>双语顺序</span>
+            <PairOrderToggle />
+          </div>
         </div>
       )}
     </div>

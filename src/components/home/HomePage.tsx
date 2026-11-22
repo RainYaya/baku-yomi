@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
+import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from '../bookshelf/BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
 import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
 import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
+import { VideoImportDialog } from '../import/VideoImportDialog';
 import { AddMaterialMenu } from '../import/AddMaterialMenu';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import { buildTextBook } from '../../lib/import/textMaterial';
@@ -47,6 +49,7 @@ function sampleBook() {
 
 export function HomePage() {
   const allBooks = useBookStore((s) => s.books);
+  const pairOrder = useSettingsStore((s) => s.pairOrder);
   const books = useMemo(() => visibleBooks(allBooks), [allBooks]);
   const currentBookId = useBookStore((s) => s.currentBookId);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
@@ -70,6 +73,7 @@ export function HomePage() {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const [collectionDialogBookId, setCollectionDialogBookId] = useState<string | null>(null);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionTitle, setNewCollectionTitle] = useState('');
@@ -263,6 +267,7 @@ export function HomePage() {
             onPaste={() => setPasteOpen(true)}
             onGenerate={() => setGenerateOpen(true)}
             onSubtitle={() => setSubtitleOpen(true)}
+            onVideo={() => setVideoOpen(true)}
             onNote={() => setCurrentView('note')}
             uploading={parsing}
           />
@@ -296,6 +301,7 @@ export function HomePage() {
                   onPaste={() => setPasteOpen(true)}
                   onGenerate={() => setGenerateOpen(true)}
                   onSubtitle={() => setSubtitleOpen(true)}
+                  onVideo={() => setVideoOpen(true)}
                   onNote={() => setCurrentView('note')}
                   uploading={parsing}
                 />
@@ -353,6 +359,7 @@ export function HomePage() {
                     onPaste={() => setPasteOpen(true)}
                     onGenerate={() => setGenerateOpen(true)}
                     onSubtitle={() => setSubtitleOpen(true)}
+                    onVideo={() => setVideoOpen(true)}
                     onNote={() => setCurrentView('note')}
                     uploading={parsing}
                     variant="card"
@@ -462,8 +469,11 @@ export function HomePage() {
                               openAt(hit.bookId, hit.chapterIndex, hit.pairId)
                             }
                           >
+                            {pairOrder === 'zh-ja' && hit.chinese && (
+                              <span className="home-hit-zh">{hit.chinese}</span>
+                            )}
                             <span className="home-hit-ja">{hit.japanese}</span>
-                            {hit.chinese && (
+                            {pairOrder === 'ja-zh' && hit.chinese && (
                               <span className="home-hit-zh">{hit.chinese}</span>
                             )}
                             <span className="home-hit-meta">
@@ -520,6 +530,11 @@ export function HomePage() {
       <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
       <GenerateMaterialDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
       <SubtitleImportDialog open={subtitleOpen} onClose={() => setSubtitleOpen(false)} />
+      <VideoImportDialog
+        open={videoOpen}
+        onClose={() => setVideoOpen(false)}
+        onFallbackSubtitle={() => setSubtitleOpen(true)}
+      />
       <PasteTextDialog
         open={collectionDialogBookId !== null}
         onClose={() => setCollectionDialogBookId(null)}

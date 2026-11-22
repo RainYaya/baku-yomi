@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { AIProviderConfig, AIProviderType } from '../types';
 import { DEFAULT_MODELS } from '../types';
 import { createDebouncedStorage } from '../lib/debouncedStorage';
+import type { PairOrder } from '../lib/pairOrder';
 
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
@@ -10,6 +11,8 @@ export type ReaderColumns = 1 | 2;
 export type ReadingFont = 'serif' | 'sans' | 'ud' | 'maru' | 'klee';
 /** Card keeps the sentence big; compact fits many rows on one screen. */
 export type VocabDensity = 'card' | 'compact';
+/** Which subtitle lines the video page shows; `both` still honours pairOrder. */
+export type VideoLanguageMode = 'both' | 'ja' | 'zh';
 
 export interface AIProviderProfile extends AIProviderConfig {
   id: string;
@@ -26,6 +29,10 @@ interface SettingsState {
   keywordMode: boolean;
   layoutMode: LayoutMode;
   readerColumns: ReaderColumns;
+  /** Which language sits on the primary (large) line of a bilingual pair. */
+  pairOrder: PairOrder;
+  /** Video page visibility: both lines, Japanese only, or Chinese only. */
+  videoLanguageMode: VideoLanguageMode;
   /** Body typeface for Japanese reading; serif is best for long text. */
   readingFont: ReadingFont;
   vocabDensity: VocabDensity;
@@ -48,6 +55,8 @@ interface SettingsState {
   toggleKeywordMode: () => void;
   setLayoutMode: (mode: LayoutMode) => void;
   setReaderColumns: (columns: ReaderColumns) => void;
+  setPairOrder: (order: PairOrder) => void;
+  setVideoLanguageMode: (mode: VideoLanguageMode) => void;
   setReadingFont: (font: ReadingFont) => void;
   setVocabDensity: (density: VocabDensity) => void;
   changeFontZoom: (direction: 1 | -1) => void;
@@ -91,6 +100,10 @@ export const useSettingsStore = create<SettingsState>()(
       // Desktop opens as an open book; tablets and phones stay single-column
       // because the reader only honours this at >=1100px.
       readerColumns: 2 as ReaderColumns,
+      // Japanese is the material; Chinese is the gloss. Learners who want
+      // Chinese-first flip it once and every bilingual surface follows.
+      pairOrder: 'ja-zh' as PairOrder,
+      videoLanguageMode: 'both' as VideoLanguageMode,
       readingFont: 'serif' as ReadingFont,
       // Scanning the wordbook beats admiring one entry: compact by default.
       vocabDensity: 'compact' as VocabDensity,
@@ -159,6 +172,10 @@ export const useSettingsStore = create<SettingsState>()(
       setLayoutMode: (mode) => set({ layoutMode: mode }),
 
       setReaderColumns: (columns) => set({ readerColumns: columns }),
+
+      setPairOrder: (order) => set({ pairOrder: order }),
+
+      setVideoLanguageMode: (mode) => set({ videoLanguageMode: mode }),
 
       setReadingFont: (font) => set({ readingFont: font }),
 

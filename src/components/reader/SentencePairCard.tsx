@@ -3,6 +3,7 @@ import type { SentencePair as SentencePairType } from '../../types';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { usePracticeStore } from '../../stores/practiceSlice';
 import { useBookmarkStore, BOOKMARK_COLORS } from '../../stores/bookmarkSlice';
+import { bookmarkedHtml } from '../../lib/textMarkup';
 import {
   playVoicevox,
   seekVoicevox,
@@ -42,18 +43,13 @@ function JapaneseText({
 
   const renderedContent = useMemo(() => {
     if (bookmarks.length > 0) {
-      const sorted = [...bookmarks].sort((a, b) => b.endOffset - a.endOffset);
-      let text = pair.japanese;
-
-      for (const bm of sorted) {
-        const before = text.slice(0, bm.startOffset);
-        const marked = text.slice(bm.startOffset, bm.endOffset);
-        const after = text.slice(bm.endOffset);
-        const color = BOOKMARK_COLORS.find((c) => c.id === bm.colorId);
-        text = `${before}<mark style="background-color: ${color?.bg || 'transparent'}; border-bottom: 2px solid ${color?.border || 'transparent'};">${marked}</mark>${after}`;
-      }
-
-      return <span dangerouslySetInnerHTML={{ __html: text }} />;
+      return (
+        <span
+          dangerouslySetInnerHTML={{
+            __html: bookmarkedHtml(pair.japanese, bookmarks, BOOKMARK_COLORS),
+          }}
+        />
+      );
     }
 
     if (showFurigana && pair.japaneseHtml) {
@@ -89,6 +85,7 @@ function SentencePairCardComponent({
   onRetranslate,
 }: Props) {
   const hasChinese = pair.chinese.trim().length > 0;
+  const pairOrder = useSettingsStore((s) => s.pairOrder);
   const translation = usePracticeStore((s) => s.translations[pair.id] ?? '');
   const analysis = usePracticeStore((s) => s.analyses[pair.id]);
   const note = usePracticeStore((s) => s.notes[pair.id] ?? '');
@@ -96,6 +93,24 @@ function SentencePairCardComponent({
   const [retranslating, setRetranslating] = useState(false);
   const [retranslateError, setRetranslateError] = useState<string | null>(null);
   const isAiTranslation = pair.translationSource === 'ai';
+  const zhLine = hasChinese ? (
+    <p className="zh">
+      {isAiTranslation && (
+        <span
+          className="translation-badge"
+          data-reviewed={pair.translationReviewed ? 'true' : 'false'}
+          title={
+            pair.translationReviewed
+              ? 'AI 翻译，已人工校对'
+              : 'AI 翻译，尚未校对'
+          }
+        >
+          {pair.translationReviewed ? 'AI 译 · 已校' : 'AI 译'}
+        </span>
+      )}
+      {pair.chinese}
+    </p>
+  ) : null;
 
   const voicevoxSpeakerId = useSettingsStore((s) => s.voicevoxSpeakerId);
   const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
@@ -203,26 +218,9 @@ function SentencePairCardComponent({
       </div>
 
       <div className="pair-text">
+        {pairOrder === 'zh-ja' && zhLine}
         <JapaneseText pair={pair} className="ja" />
-
-        {hasChinese && (
-          <p className="zh">
-            {isAiTranslation && (
-              <span
-                className="translation-badge"
-                data-reviewed={pair.translationReviewed ? 'true' : 'false'}
-                title={
-                  pair.translationReviewed
-                    ? 'AI 翻译，已人工校对'
-                    : 'AI 翻译，尚未校对'
-                }
-              >
-                {pair.translationReviewed ? 'AI 译 · 已校' : 'AI 译'}
-              </span>
-            )}
-            {pair.chinese}
-          </p>
-        )}
+        {pairOrder === 'ja-zh' && zhLine}
         {retranslateError && (
           <p className="pair-retranslate-error">{retranslateError}</p>
         )}

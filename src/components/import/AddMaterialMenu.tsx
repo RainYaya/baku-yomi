@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { FiCpu, FiEdit3, FiFilm, FiGlobe, FiPlus, FiUpload } from 'react-icons/fi';
+import { FiCpu, FiEdit3, FiFilm, FiGlobe, FiPlus, FiUpload, FiVideo } from 'react-icons/fi';
 
 interface Props {
   onEpub: (file: File) => void;
   onPaste: () => void;
   onSubtitle?: () => void;
+  onVideo?: () => void;
   onGenerate?: () => void;
   onNote?: () => void;
   uploading?: boolean;
@@ -21,6 +22,7 @@ export function AddMaterialMenu({
   onEpub,
   onPaste,
   onSubtitle,
+  onVideo,
   onGenerate,
   onNote,
   uploading = false,
@@ -64,7 +66,7 @@ export function AddMaterialMenu({
         {variant === 'card' ? (
           <span>
             <b>添加材料</b>
-            <small>EPUB、网页、字幕、AI 情景</small>
+            <small>EPUB、网页、字幕、视频、AI 情景</small>
           </span>
         ) : (
           <span>添加材料</span>
@@ -117,6 +119,21 @@ export function AddMaterialMenu({
             <span>
               <b>导入字幕</b>
               <small>SRT / VTT，双语或单语</small>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="add-material-item"
+            role="menuitem"
+            disabled={!onVideo}
+            title={onVideo ? undefined : '视频导入即将支持'}
+            onClick={() => closeAnd(onVideo)}
+          >
+            <FiVideo size={15} aria-hidden="true" />
+            <span>
+              <b>导入视频</b>
+              <small>YouTube 或本地视频，带日文字幕</small>
             </span>
           </button>
 

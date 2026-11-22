@@ -28,6 +28,8 @@ import {
   type SourceGroup,
 } from '../../lib/library/sources';
 import type { ErrorCategory } from '../../types';
+import { useSettingsStore } from '../../stores/settingsSlice';
+import { PairOrderToggle } from '../common/PairOrderToggle';
 
 type ErrorFilter = 'all' | ErrorCategory;
 type SortBy = 'recent' | 'score';
@@ -35,6 +37,7 @@ type DateRange = 'all' | '7' | '30';
 
 export function ReviewPage() {
   const books = useBookStore((s) => s.books);
+  const pairOrder = useSettingsStore((s) => s.pairOrder);
   const setCurrentBook = useBookStore((s) => s.setCurrentBook);
   const setCurrentChapter = useBookStore((s) => s.setCurrentChapter);
   const setScrollToPairId = useBookStore((s) => s.setScrollToPairId);
@@ -269,6 +272,10 @@ export function ReviewPage() {
                 <option value="score">分数从低到高</option>
               </select>
             </label>
+            <div className="review-filter review-filter-order">
+              <span>顺序</span>
+              <PairOrderToggle />
+            </div>
           </div>
         </div>
 
@@ -304,6 +311,9 @@ export function ReviewPage() {
           <ol className="review-list">
             {filtered.map((entry) => {
               const isOpen = expanded === entry.pairId;
+              const zhLine = entry.pair.chinese ? (
+                <p className="review-zh">{entry.pair.chinese}</p>
+              ) : null;
               return (
                 <li key={entry.pairId} className="review-item" data-open={isOpen}>
                   <div className="review-item-main">
@@ -316,10 +326,9 @@ export function ReviewPage() {
                       {entry.score}
                     </span>
                     <div className="review-copy">
+                      {pairOrder === 'zh-ja' && zhLine}
                       <p className="review-ja">{entry.pair.japanese}</p>
-                      {entry.pair.chinese && (
-                        <p className="review-zh">{entry.pair.chinese}</p>
-                      )}
+                      {pairOrder === 'ja-zh' && zhLine}
                       {entry.translation && (
                         <p className="review-attempt">
                           <span>回译</span> {entry.translation}

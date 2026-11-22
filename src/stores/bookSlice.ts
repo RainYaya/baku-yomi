@@ -9,6 +9,7 @@ import { createBookId } from '../lib/id';
 import { migrateBookPairIds } from '../lib/pairMigration';
 import { buildDemoLibrary } from '../lib/seed/demoLibrary';
 import { fetchLocalSeedLibrary } from '../lib/seed/localSeed';
+import { deleteVideoHandle } from '../lib/video/handles';
 
 export const NOTE_BOOK_ID = 'note-book';
 
@@ -163,12 +164,16 @@ export const useBookStore = create<BookState>()(
           ),
         })),
 
-      removeBook: (id) =>
+      removeBook: (id) => {
+        if (get().books.find((b) => b.id === id)?.source?.kind === 'video') {
+          void deleteVideoHandle(id);
+        }
         set((state) => ({
           books: state.books.filter((b) => b.id !== id),
           currentBookId:
             state.currentBookId === id ? null : state.currentBookId,
-        })),
+        }));
+      },
 
       renameBook: (id, title) =>
         set((state) => ({

@@ -1,7 +1,7 @@
 # 交接文档
 
 > 写给「换一台电脑继续开发」的自己。目标是：读完这一份，装好环境，就能接上上下文。
-> 最后更新：2026-11-20（main 分支，材料聚合器 M0–M6）
+> 最后更新：2026-11-22（feat/video-material，视频材料）
 
 ---
 
@@ -11,11 +11,17 @@ baku-yomi 是给中文母语者的日语阅读器：导入双语材料，逐句�
 
 阅读是主线，练习是第二步。没有强制进度、没有刷题模式、不会自动弹出练习。
 
-## 2. 当前状态（2026-11-20）
+## 2. 当前状态（2026-11-22）
 
-main 上已完成：
+`feat/video-material` 上新增（尚未合并 main）：
 
-- **材料聚合器**：材料库按来源筛选（书 / 链接 / AI 情景 / 字幕），书卡带来源徽章；「添加材料」统一收 EPUB、粘贴/URL、字幕、AI 情景、note。
+- **视频材料**：YouTube 只取日文字幕（`yt-dlp`），本地视频配 `.srt` / `.vtt` 字幕，生成带时间轴的视频书；阅读页是「书桌式」——文稿为主，播放器在右（手机在上），当前句可讲解/练习。
+- **本地视频不复制、不上传**：文件只在当前会话用 `File` 对象播放；`FileSystemFileHandle` 存 IndexedDB（`baku-yomi-media`），刷新后请求一次读取授权即可恢复，拒绝或换浏览器就重新选文件。
+- **全局双语顺序**：`settings-store.pairOrder` 是 `日-中` / `中-日` 的全局设置，阅读器、复习、练习桌、首页命中、章节菜单、视频页都跟随；顺序决定上下位置，也决定哪一行用大字号，字体族不变。
+
+main 上已有：
+
+- **材料聚合器**：材料库按来源筛选（书 / 链接 / AI 情景 / 字幕 / 视频），书卡带来源徽章；「添加材料」统一收 EPUB、粘贴/URL、字幕、视频、AI 情景、note。
 - **UI v2**：paper（纸页）/ night（夜读）两个主题，同一结构换皮；桌面 ≥1100px 是纸页内嵌 + 翻页双栏，手机/平板单栏。
 - **六个页面**：首页（桌面）、书架、阅读器（活页夹）、note 阅读源、练习记录、生词本。
 - **note 源**：默认话题 RSS，也可加作者/话题；点文章才抓正文，存进隐藏的 `note-book`，按 URL 去重；付费/空正文有明确状态；支持屏蔽词。
@@ -28,7 +34,7 @@ main 上已完成：
 - **生词本**：划词加入、AI 补全、紧凑/卡片两种列表、搜索筛选、ref 格式导出。
 - **数据**：全部存 localStorage，可导出/恢复 JSON 备份；练习数据 v1 会自动迁移到 attempts v2。
 
-测试 191 条通过，`tsc -b` 与 `pnpm build` 通过。
+测试 238 条通过，`tsc -b`、`pnpm build` 通过；`pnpm lint` 仍有历史遗留报错（见第 9 节）。
 
 ## 3. 跑起来
 
@@ -43,6 +49,8 @@ pnpm dev
 - API `http://localhost:3003`（Vite 把 `/api` 代理过去）
 
 首次使用：设置里选 AI 供应商。默认是「B站免费」（无需 key），也可以填 OpenAI / Anthropic / Google 的 key，key 只存在浏览器 localStorage，不会上传。
+
+YouTube 视频字幕需要本机有 `yt-dlp`（`brew install yt-dlp` 或 `pipx install yt-dlp`）。没有时导入对话框会退回「只导入字幕」或「本地视频」。服务端只把白名单内的 YouTube URL 交给 `yt-dlp`，用参数数组、60 秒超时、临时目录，不下载视频。
 
 | 命令 | 作用 |
 | --- | --- |
@@ -70,7 +78,7 @@ src/
     review/               练习记录（全局 journal + 随机练习入口）
     note/                 note 信息流、来源管理、文章行
     vocab/                生词本：列表页、卡片、紧凑行、详情卡
-    import/               EPUB、粘贴/URL、AI 情景、字幕导入
+    import/               EPUB、粘贴/URL、AI 情景、字幕、视频导入
     settings/             设置弹窗（AI / 声音 / 数据）
     onboarding/           欢迎引导
     layout/               存储健康提示等
@@ -86,7 +94,8 @@ src/
     ai/                   AI 客户端（analyze、讲解、翻译）
     vocab/                生词本纯逻辑：草稿、去重、提示词、解析、筛选、导出、展示
     explain/              讲解视图选择
-    import/               文本材料、粘贴目标书、AI 情景、字幕解析
+    import/               文本材料、粘贴目标书、AI 情景、字幕解析、视频导入
+    video/                视频时间轴、本地文件句柄（IndexedDB）、当前会话文件表
     note/                 note feed/章节纯逻辑
     practice/             journal 与随机练习纯逻辑
     library/              来源分组、徽章、可见材料
@@ -99,12 +108,12 @@ src/
   types/                  Book / Chapter / SentencePair / VocabEntry 等
 server/
   index.ts                Hono 入口，生产模式服务 dist/
-  routes/                 ai.ts（/analyze）、explain.ts、translate.ts、fetchUrl.ts、note.ts（/api/note/feed、/api/note/article）
+  routes/                 ai.ts（/analyze）、explain.ts、translate.ts、fetchUrl.ts、note.ts、video.ts（/api/video/resolve）
   providers.ts            AI 供应商构造
   tts/                    Microsoft / VOICEVOX
 ```
 
-API：`POST /api/analyze`（通用 AI，返回 `{ text }`，限流 30 次/分）、`POST /api/explain`、`POST /api/translate`、`POST /api/fetch-url`、`/api/tts/*`、`GET /health`。
+API：`POST /api/analyze`（通用 AI，返回 `{ text }`，限流 30 次/分）、`POST /api/explain`、`POST /api/translate`、`POST /api/fetch-url`、`POST /api/video/resolve`（YouTube 日文字幕）、`/api/tts/*`、`GET /health`。
 
 ## 5. 数据模型
 
@@ -112,16 +121,18 @@ API：`POST /api/analyze`（通用 AI，返回 `{ text }`，限流 30 次/分）
 Book { id, title, author, chapters[], source?, demo?, chapterSeq? }
 Chapter { id, title, index, pairs[], sourceUrl?, note? }
 SentencePair { id, japanese, japaneseHtml?, chinese, chapterIndex, pairIndex,
-               translationSource?, translationReviewed?, translatedAt? }
+               translationSource?, translationReviewed?, translatedAt?,
+               startMs?, endMs? }
 
 来源（`Book.source.kind`）：
 
 ```ts
-'epub' | 'text' | 'url' | 'collection' | 'note' | 'ai' | 'subtitle'
+'epub' | 'text' | 'url' | 'collection' | 'note' | 'ai' | 'subtitle' | 'video'
 ```
 
 - `note` 书是隐藏的 `note-book`，打开的文章都是它的章节；`Chapter.note` 存 URL、作者、发布时间、来源话题。
 - `ai` 书带 `source.scenario`（用户原始情景）；`subtitle` 书一个文件一章。
+- `video` 书一章，句对带 `startMs` / `endMs`；`source.video` 区分 `youtube`（`videoId`、`url`、频道、缩略图）和 `local`（`fileName`、`fileSize`、`fileLastModified`，不存文件内容）。
 ```
 
 - `japaneseHtml` 保留 `<ruby>` 假名；划词 offset 一律基于纯文本 `pair.japanese`，忽略 ruby。
@@ -150,12 +161,15 @@ localStorage 键：
 
 备份逻辑在 `src/lib/storage.ts`：`BACKUP_KEYS` 决定导出内容；容量上限按 5MB 计，超过 3.5MB 时 `StorageHealthNotice` 会提示。
 
+IndexedDB `baku-yomi-media` / 对象仓库 `handles` 只存本地视频的 `FileSystemFileHandle`，键是书 id，**不进备份**（句柄无法 JSON 序列化，也不应跨设备）。备份恢复后的本地视频书，文稿和句对都在，重新进阅读页时选一次视频文件即可；YouTube 书用 URL，不受影响。删书时 `bookSlice.removeBook` 会清掉对应句柄。视频文件本身从不进入 localStorage 或 IndexedDB。
+
 ## 6. 设计系统
 
 - 两个主题：`body.paper` / `body.night`，同时写 `body.dataset.theme`。切换不改结构，只换 token。
 - token 定义在 `src/index.css`：`--bg --text --mid --paper --paper-2 --paper-3 --muted --rule --rule-strong --red --red-soft --font-*`。
 - 组件样式在 `src/artboard.css`（主体，约 4600 行）和 `src/ui-v2.css`。Tailwind 装了但基本没用于布局，新样式优先写进 artboard.css 并复用 token。
 - 字体：阅读 `Zen Maru Gothic`，UI `IBM Plex Sans`，小标签/出处 `IBM Plex Mono`。
+- 双语顺序由 `settings-store.pairOrder` 决定，`App.tsx` 写到根节点 `data-pair-order`；CSS 按位置换字号/颜色，DOM 顺序由各组件的 `pairOrderLines()` 决定。视频页的「日中 / 中日」按钮改的是同一个全局设置。
 - 桌面 ≥1100px：纸页内嵌（左右 24px、上下 18px）+ 双栏翻页（CSS multi-column，一次翻一跨页，320ms 滑动，滚轮/← →/翻页按钮）。手机和平板保持单栏。
 - 设计方向（2026-11-10 定）：两档练习都保留（句内随手练 + 整页练习桌），讲解是同一表面的兄弟标签；B 方案（译者校样双栏）已否决。不要回到旧的六主题天气皮肤。
 
@@ -206,7 +220,7 @@ localStorage 键：
 
 - 测试是 `node --test` + tsx，纯逻辑放 `src/lib`，组件保持薄。
 - 改生词本逻辑先跑 `tests/vocab*.test.ts`；全量 `pnpm test`。
-- 已知 lint 报错：`src/components/reader/ReadingView.tsx` 书签 effect 里的 `react-hooks/set-state-in-effect`（历史遗留，不是新代码引入的）。
+- 已知 lint 报错：`ReadingView` 书签 effect（`set-state-in-effect`）、`ExplainContent` 的 ref 读取、`VoiceSettingsPanel` 的 effect 依赖、epub 解析里的控制字符正则等，都是历史遗留；视频相关新文件已无 lint 报错。
 - 构建有 chunk > 500kB 的警告（历史遗留）。
 - 本机截图：ego 的 `Page.captureScreenshot` 会超时，改用 `Page.printToPDF` + PowerShell WinRT 把 PDF 转 PNG。脚本在 `C:\Users\Neal\ego\vocab-e2e-20261117\`，不进仓库；换电脑后需要重写。
 - UI 验证页：`.ryugi/artifacts/artboard/verify-vocab/`（`.ryugi/` 不进 git）。
@@ -227,7 +241,7 @@ localStorage 键：
 
 ## 12. 已知问题 / 下一步
 
-- README 还停留在旧功能（六主题、EPUB 为主），与现在的 UI v2 不一致，值得更新。
+- README 的中英文功能列表已补视频材料；英文段仍比中文段简略，更新时以中文段为准。
 - 生词本的 A4 打印排版是 phase 2（目前只导出 ref 文本）。
 - 没有云同步，数据只在本机浏览器；换设备靠备份 JSON 或默认书库。
 - 生词本手机上不显示 類 / CORE / 出处（详情卡里有）。

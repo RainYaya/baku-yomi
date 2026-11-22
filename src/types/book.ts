@@ -29,7 +29,26 @@ export type BookSourceKind =
   | 'collection'
   | 'note'
   | 'ai'
-  | 'subtitle';
+  | 'subtitle'
+  | 'video';
+
+export type VideoProvider = 'youtube' | 'local';
+
+export interface VideoSource {
+  provider: VideoProvider;
+  // YouTube
+  url?: string;
+  videoId?: string;
+  channel?: string;
+  thumbnailUrl?: string;
+  // Local file metadata; the file itself is never stored.
+  fileName?: string;
+  fileSize?: number;
+  fileLastModified?: number;
+  mimeType?: string;
+  // Shared
+  durationSec?: number;
+}
 
 export interface BookSource {
   kind: BookSourceKind;
@@ -39,6 +58,8 @@ export interface BookSource {
   scenario?: string;
   /** Original subtitle file name. */
   fileName?: string;
+  /** Present on video books. */
+  video?: VideoSource;
 }
 
 export interface Chapter {
@@ -74,4 +95,7 @@ export interface SentencePair {
   /** Set when the reader has checked an AI translation. */
   translationReviewed?: boolean;
   translatedAt?: number;
+  /** Video timeline: cue start and end in milliseconds. */
+  startMs?: number;
+  endMs?: number;
 }

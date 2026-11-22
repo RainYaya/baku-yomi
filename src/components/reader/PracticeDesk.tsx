@@ -16,6 +16,7 @@ import type {
 } from '../../machines/reader';
 import { FiSettings } from 'react-icons/fi';
 import type { InlineTab } from './InlinePracticeCard';
+import { PairOrderToggle } from '../common/PairOrderToggle';
 
 interface Props {
   pair: SentencePairType;
@@ -60,6 +61,7 @@ export function PracticeDesk({
   const updatePairChinese = useBookStore((s) => s.updatePairChinese);
   const setPairTranslationReviewed = useBookStore((s) => s.setPairTranslationReviewed);
   const aiProvider = useSettingsStore((s) => s.getActiveAIProvider());
+  const pairOrder = useSettingsStore((s) => s.pairOrder);
   const openSettings = useUIStore((s) => s.openSettings);
   const { analyze } = useAnalysis();
 
@@ -192,6 +194,7 @@ export function PracticeDesk({
           <span className="d2-progress">
             <b>{pair.pairIndex + 1}</b> / {chapter.pairs.length}
           </span>
+          <PairOrderToggle className="pair-order-toggle-desk" />
           <ThemeToggle className="d2-icon-btn" />
           <button
             className="d2-icon-btn"
@@ -223,8 +226,13 @@ export function PracticeDesk({
               <span className="d2-count">第 {pair.pairIndex + 1} 句</span>
             </div>
             <div className="d2-source-strip">
+              {pairOrder === 'zh-ja' && (
+                <p className="d2-source-zh">{pair.chinese || '暂无译文'}</p>
+              )}
               <p className="d2-source-ja">{pair.japanese}</p>
-              <p className="d2-source-zh">{pair.chinese || '暂无译文'}</p>
+              {pairOrder === 'ja-zh' && (
+                <p className="d2-source-zh">{pair.chinese || '暂无译文'}</p>
+              )}
             </div>
             <div className="d2-context">
               <div className="d2-context-row">

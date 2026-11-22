@@ -7,6 +7,7 @@ import explain from './routes/explain';
 import translate from './routes/translate';
 import fetchUrl from './routes/fetchUrl';
 import note from './routes/note';
+import video from './routes/video';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -28,6 +29,7 @@ app.route('/api', explain);
 app.route('/api', translate);
 app.route('/api', fetchUrl);
 app.route('/api/note', note);
+app.route('/api', video);
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 

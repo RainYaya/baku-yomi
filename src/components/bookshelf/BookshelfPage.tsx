@@ -6,6 +6,7 @@ import { BookCard } from './BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
 import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
 import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
+import { VideoImportDialog } from '../import/VideoImportDialog';
 import { AddMaterialMenu } from '../import/AddMaterialMenu';
 import { booksInGroup, visibleBooks, type LibraryFilter } from '../../lib/library/sources';
 import { useNoteUnread } from '../../hooks/useNoteFeed';
@@ -39,6 +40,7 @@ export function BookshelfPage() {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<LibraryFilter>('all');
 
   const totalPairs = useMemo(
@@ -87,6 +89,7 @@ export function BookshelfPage() {
     { id: 'collection' as const, label: '合集', count: booksInGroup(books, 'collection').length },
     { id: 'ai' as const, label: 'AI 情景', count: booksInGroup(books, 'ai').length },
     { id: 'subtitle' as const, label: '字幕', count: booksInGroup(books, 'subtitle').length },
+    { id: 'video' as const, label: '视频', count: booksInGroup(books, 'video').length },
   ].filter((chip) => chip.id === 'all' || chip.count > 0);
 
   const handleEpubFile = (file: File) => {
@@ -158,6 +161,7 @@ export function BookshelfPage() {
             onPaste={() => setPasteOpen(true)}
             onGenerate={() => setGenerateOpen(true)}
             onSubtitle={() => setSubtitleOpen(true)}
+            onVideo={() => setVideoOpen(true)}
             onNote={() => setCurrentView('note')}
             uploading={parsing}
           />
@@ -227,6 +231,7 @@ export function BookshelfPage() {
               onPaste={() => setPasteOpen(true)}
               onGenerate={() => setGenerateOpen(true)}
               onSubtitle={() => setSubtitleOpen(true)}
+              onVideo={() => setVideoOpen(true)}
               onNote={() => setCurrentView('note')}
               uploading={parsing}
             />
@@ -286,6 +291,7 @@ export function BookshelfPage() {
                   onPaste={() => setPasteOpen(true)}
                   onGenerate={() => setGenerateOpen(true)}
                   onSubtitle={() => setSubtitleOpen(true)}
+                  onVideo={() => setVideoOpen(true)}
                   onNote={() => setCurrentView('note')}
                   uploading={parsing}
                 />
@@ -304,6 +310,11 @@ export function BookshelfPage() {
       <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
       <GenerateMaterialDialog open={generateOpen} onClose={() => setGenerateOpen(false)} />
       <SubtitleImportDialog open={subtitleOpen} onClose={() => setSubtitleOpen(false)} />
+      <VideoImportDialog
+        open={videoOpen}
+        onClose={() => setVideoOpen(false)}
+        onFallbackSubtitle={() => setSubtitleOpen(true)}
+      />
     </section>
   );
 }

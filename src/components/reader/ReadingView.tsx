@@ -99,6 +99,7 @@ export function ReadingView() {
   const changeFontZoom = useSettingsStore((s) => s.changeFontZoom);
   const readerColumns = useSettingsStore((s) => s.readerColumns);
   const setReaderColumns = useSettingsStore((s) => s.setReaderColumns);
+  const pairOrder = useSettingsStore((s) => s.pairOrder);
   const voicevoxSpeakerId = useSettingsStore((s) => s.voicevoxSpeakerId);
   const voicevoxSpeed = useSettingsStore((s) => s.voicevoxSpeed);
   const voicevoxPitch = useSettingsStore((s) => s.voicevoxPitch);
@@ -1463,8 +1464,11 @@ export function ReadingView() {
                       role="menuitem"
                       onClick={() => jumpToSearchHit(hit.chapterIndex, hit.pairId)}
                     >
+                      {pairOrder === 'zh-ja' && hit.chinese && (
+                        <small className="chapter-menu-hit-zh">{hit.chinese}</small>
+                      )}
                       <span className="chapter-menu-hit-ja">{hit.japanese}</span>
-                      {hit.chinese && (
+                      {pairOrder === 'ja-zh' && hit.chinese && (
                         <small className="chapter-menu-hit-zh">{hit.chinese}</small>
                       )}
                       <small>{hit.chapterTitle}</small>

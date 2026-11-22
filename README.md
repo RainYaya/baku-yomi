@@ -18,10 +18,11 @@
 ### 功能
 
 - **双语对照阅读** — 日语原文 + 中文翻译逐句对齐显示
-- **材料聚合** — EPUB / 粘贴 / URL / 合集 / note 短文 / AI 情景 / SRT·VTT 字幕，同一个材料库按来源筛选
+- **材料聚合** — EPUB / 粘贴 / URL / 合集 / note 短文 / AI 情景 / SRT·VTT 字幕 / 视频，同一个材料库按来源筛选
 - **note 阅读源** — 话题或作者的最新文章，点开才抓正文，可翻译、存生词
 - **AI 情景材料** — 描述场景（如「在日本买衣服」），生成双语对话，预览可改后保存
 - **字幕导入** — `.srt` / `.vtt`，双语自动配对，单语日语也可读
+- **视频材料** — YouTube 只取日文字幕，或本地 mp4/webm/mov + 外挂字幕；文稿按时间轴跟播，当前句可讲解、练习。本地视频不复制、不上传，下次打开重新授权文件即可
 - **练习记录** — 所有材料的批改汇总，可按材料/来源/分数/错误筛选，展开看每次回译
 - **随机练习** — 从全部或指定材料随机抽一句，避开最近抽过的句子
 - **回译练习** — 看中文写日语，AI 打分和纠错
@@ -72,11 +73,13 @@ docker compose --profile voicevox up
 
 ### 使用方法
 
-1. 点「添加材料」：导入 EPUB、粘贴文本/URL、导入字幕，或让 AI 按情景生成材料
+1. 点「添加材料」：导入 EPUB、粘贴文本/URL、导入字幕、导入视频，或让 AI 按情景生成材料
 2. 在设置中选择 AI 供应商（内置免 key 供应商，也可填自己的 Key）
-3. 从首页或材料库打开材料开始阅读
+3. 从首页或材料库打开材料开始阅读；视频书按时间轴跟播，点句可跳转
 4. 点击句子打开练习面板，输入日语回译，提交 AI 分析
 5. 在「练习记录」里查看所有材料的练习，或点「随机练一句」抽一句复习
+
+> YouTube 字幕需要本机安装 `yt-dlp`；没有时仍可只导入字幕，或改用本地视频 + 字幕文件。
 
 > 想每天读天声人语这类文章：新建一个合集，每天把 URL 或正文追加进去即可。baku-yomi 不会自动抓取报纸/专栏，也不绕过付费墙。
 
@@ -99,11 +102,13 @@ Import bilingual EPUB books, read Japanese with aligned Chinese translations, th
 ### Features
 
 - **Bilingual reading** — Japanese + Chinese sentence-aligned display
+- **Material library** — EPUB / pasted text / URLs / collections / note articles / AI scenarios / subtitle files / videos, filterable by source
+- **Video material** — YouTube transcripts (subtitles only) or a local mp4/webm/mov with subtitle files; the transcript follows playback and the current line can be explained or practiced. Local videos are never copied or uploaded
 - **Back-translation practice** — Write Japanese from Chinese, get AI scoring and corrections
 - **TTS read-aloud** — Microsoft Edge TTS (free) or VOICEVOX Japanese voices
 - **Continuous reading** — Auto-play sentences with prefetch and caching
 - **Text bookmarks** — Highlight and color-code text for review
-- **6 themes** — Night / Moonlight / Day / Sunny / Rain / Snow with animated canvas overlays
+- **Two themes** — paper (day) / night with a single-column mobile layout
 - **BYOK** — Bring your own AI key (OpenAI / Anthropic / Google). Keys never leave your browser.
 
 ### Quick Start
@@ -147,10 +152,13 @@ See the [self-hosting guide](docs/self-hosting.md) for details.
 
 ### Usage
 
-1. Open the app and click **Import EPUB** to upload a bilingual EPUB
+1. Open the app and click **Add material** to import an EPUB, paste text, add a URL, import subtitles or a video, or generate an AI scenario
 2. Go to **Settings** and enter your AI API key
-3. Select a chapter from the sidebar
+3. Open a material; for videos, click a transcript line to seek
 4. Click a sentence to open the practice panel, write your back-translation, and submit for AI analysis
+5. Review all practice in **Practice log**, or draw a random sentence
+
+> YouTube transcripts require `yt-dlp` on the machine running the API. Without it you can still import subtitle files, or use a local video with subtitles.
 
 ### Keyboard Shortcuts
 

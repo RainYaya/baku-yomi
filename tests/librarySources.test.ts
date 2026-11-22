@@ -27,8 +27,12 @@ const collection = book('collection', { kind: 'collection' });
 const note = book('note-book', { kind: 'note' });
 const ai = book('ai', { kind: 'ai', scenario: '在便利店' });
 const subtitle = book('subtitle', { kind: 'subtitle', fileName: 'ep1.srt' });
+const video = book('video', {
+  kind: 'video',
+  video: { provider: 'youtube', videoId: 'abcdefghijk' },
+});
 const unknown = book('unknown');
-const books = [epub, text, url, collection, note, ai, subtitle, unknown];
+const books = [epub, text, url, collection, note, ai, subtitle, video, unknown];
 
 test('sourceGroup maps every source kind to a library group', () => {
   assert.equal(sourceGroup(epub), 'book');
@@ -38,6 +42,7 @@ test('sourceGroup maps every source kind to a library group', () => {
   assert.equal(sourceGroup(note), 'note');
   assert.equal(sourceGroup(ai), 'ai');
   assert.equal(sourceGroup(subtitle), 'subtitle');
+  assert.equal(sourceGroup(video), 'video');
   assert.equal(sourceGroup(unknown), 'book');
 });
 
@@ -49,6 +54,7 @@ test('sourceLabel gives the Chinese badge for each source', () => {
   assert.equal(sourceLabel(note), 'note');
   assert.equal(sourceLabel(ai), 'AI 情景');
   assert.equal(sourceLabel(subtitle), '字幕');
+  assert.equal(sourceLabel(video), '视频');
   assert.equal(sourceLabel(unknown), '书');
 });
 
@@ -61,7 +67,7 @@ test('isNoteBook only matches the note source', () => {
 test('visibleBooks removes note books from the flat library', () => {
   assert.deepEqual(
     visibleBooks(books).map((item) => item.id),
-    ['epub', 'text', 'url', 'collection', 'ai', 'subtitle', 'unknown']
+    ['epub', 'text', 'url', 'collection', 'ai', 'subtitle', 'video', 'unknown']
   );
 });
 
@@ -90,5 +96,9 @@ test('booksInGroup filters by group and keeps all for all', () => {
   assert.deepEqual(
     booksInGroup(books, 'subtitle').map((item) => item.id),
     ['subtitle']
+  );
+  assert.deepEqual(
+    booksInGroup(books, 'video').map((item) => item.id),
+    ['video']
   );
 });
