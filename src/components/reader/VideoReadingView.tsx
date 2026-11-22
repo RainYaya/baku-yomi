@@ -46,6 +46,11 @@ import {
   VIDEO_SIDE_MAX,
   VIDEO_SIDE_MIN,
 } from '../../lib/video/layout';
+import {
+  clampSubtitlePoint,
+  SUBTITLE_DEFAULT_POS,
+  type SubtitlePoint,
+} from '../../lib/video/overlay';
 import { useTextSelection, type SelectionInfo } from '../../hooks/useTextSelection';
 import {
   createVocabDraftFromEntry,
@@ -96,6 +101,12 @@ export function VideoReadingView() {
   const setVideoLanguageMode = useSettingsStore((s) => s.setVideoLanguageMode);
   const videoSideWidth = useSettingsStore((s) => s.videoSideWidth);
   const setVideoSideWidth = useSettingsStore((s) => s.setVideoSideWidth);
+  const videoSubtitlePositions = useSettingsStore(
+    (s) => s.videoSubtitlePositions
+  );
+  const setVideoSubtitlePosition = useSettingsStore(
+    (s) => s.setVideoSubtitlePosition
+  );
   const fontZoom = useSettingsStore((s) => s.fontZoom);
   const changeFontZoom = useSettingsStore((s) => s.changeFontZoom);
   const setReadingProgress = useBookStore((s) => s.setReadingProgress);
@@ -117,6 +128,16 @@ export function VideoReadingView() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const videoMainRef = useRef<HTMLElement | null>(null);
+  const playerRef = useRef<HTMLDivElement | null>(null);
+  const subtitleRef = useRef<HTMLDivElement | null>(null);
+  const subtitleDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startPos: SubtitlePoint;
+    box: { width: number; height: number };
+    last: SubtitlePoint | null;
+  } | null>(null);
   const resizeDragRef = useRef<{ startX: number; startWidth: number } | null>(
     null
   );
@@ -129,6 +150,9 @@ export function VideoReadingView() {
   const [playbackError, setPlaybackError] = useState(false);
   const [ytPlaying, setYtPlaying] = useState(false);
   const [resizing, setResizing] = useState(false);
+  const [draggingSubtitle, setDraggingSubtitle] = useState(false);
+  const [dragSubtitlePos, setDragSubtitlePos] =
+    useState<SubtitlePoint | null>(null);
 
   const [inlineTab, setInlineTab] = useState<InlineTab>('practice');
   const [explainFragment, setExplainFragment] = useState('');
@@ -166,6 +190,11 @@ export function VideoReadingView() {
   );
   const currentIndex = Math.max(0, pairIndexAtTime(pairs, currentMs));
   const currentPair = pairs[currentIndex];
+
+  const storedSubtitlePos = currentBook
+    ? videoSubtitlePositions[currentBook.id] ?? SUBTITLE_DEFAULT_POS
+    : SUBTITLE_DEFAULT_POS;
+  const subtitlePos = dragSubtitlePos ?? storedSubtitlePos;
 
   useEffect(() => {
     setPlaybackError(false);
@@ -435,8 +464,42 @@ export function VideoReadingView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, expanded, pairs, isYouTube, ytPlaying]);
 
+  // A dragged subtitle is stored as a fraction of the player, so resizing the
+  // desk or enlarging the player can leave it hanging over an edge. Pull it
+  // back in whenever either box changes size.
   useEffect(() => {
-    return () => document.body.classList.remove('video-resizing');
+    const player = playerRef.current;
+    const subtitle = subtitleRef.current;
+    if (!player || !subtitle || !currentBook) return;
+
+    const clampToPlayer = () => {
+      if (subtitleDragRef.current) return;
+      const next = clampSubtitlePoint(
+        storedSubtitlePos,
+        player.getBoundingClientRect(),
+        { width: subtitle.offsetWidth, height: subtitle.offsetHeight }
+      );
+      if (
+        Math.abs(next.x - storedSubtitlePos.x) > 0.001 ||
+        Math.abs(next.y - storedSubtitlePos.y) > 0.001
+      ) {
+        setVideoSubtitlePosition(currentBook.id, next);
+      }
+    };
+
+    const observer = new ResizeObserver(clampToPlayer);
+    observer.observe(player);
+    observer.observe(subtitle);
+    clampToPlayer();
+
+    return () => observer.disconnect();
+  }, [currentBook, storedSubtitlePos, setVideoSubtitlePosition]);
+
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('video-resizing');
+      document.body.classList.remove('video-subtitle-dragging');
+    };
   }, []);
 
   if (!currentBook || !chapter) return null;
@@ -522,8 +585,96 @@ export function VideoReadingView() {
     }
   };
 
+  const startSubtitleDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const player = playerRef.current;
+    const subtitle = subtitleRef.current;
+    if (!player || !subtitle) return;
+
+    subtitleDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startPos: subtitlePos,
+      box: { width: subtitle.offsetWidth, height: subtitle.offsetHeight },
+      last: null,
+    };
+    setDraggingSubtitle(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    document.body.classList.add('video-subtitle-dragging');
+    event.preventDefault();
+  };
+
+  const moveSubtitleDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = subtitleDragRef.current;
+    const player = playerRef.current;
+    if (!drag || !player) return;
+
+    const rect = player.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const next = clampSubtitlePoint(
+      {
+        x: drag.startPos.x + (event.clientX - drag.startX) / rect.width,
+        y: drag.startPos.y + (event.clientY - drag.startY) / rect.height,
+      },
+      rect,
+      drag.box
+    );
+    drag.last = next;
+    setDragSubtitlePos(next);
+  };
+
+  const endSubtitleDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = subtitleDragRef.current;
+    if (!drag) return;
+
+    subtitleDragRef.current = null;
+    setDraggingSubtitle(false);
+    document.body.classList.remove('video-subtitle-dragging');
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (currentBook && drag.last) {
+      setVideoSubtitlePosition(currentBook.id, drag.last);
+    }
+    setDragSubtitlePos(null);
+  };
+
+  const resetSubtitlePosition = () => {
+    if (currentBook) {
+      setVideoSubtitlePosition(currentBook.id, SUBTITLE_DEFAULT_POS);
+    }
+  };
+
+  const nudgeSubtitle = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const player = playerRef.current;
+    const subtitle = subtitleRef.current;
+    if (!player || !subtitle || !currentBook) return;
+
+    const move = (dx: number, dy: number) => {
+      event.preventDefault();
+      const next = clampSubtitlePoint(
+        { x: subtitlePos.x + dx, y: subtitlePos.y + dy },
+        player.getBoundingClientRect(),
+        { width: subtitle.offsetWidth, height: subtitle.offsetHeight }
+      );
+      setVideoSubtitlePosition(currentBook.id, next);
+    };
+
+    const step = event.shiftKey ? 0.08 : 0.02;
+    if (event.key === 'ArrowLeft') move(-step, 0);
+    else if (event.key === 'ArrowRight') move(step, 0);
+    else if (event.key === 'ArrowUp') move(0, -step);
+    else if (event.key === 'ArrowDown') move(0, step);
+    else if (event.key === 'Home') resetSubtitlePosition();
+  };
+
   const renderPlayer = (expandedMode: boolean) => (
-    <div className={`video-player${expandedMode ? ' is-expanded' : ''}`}>
+    <div
+      ref={playerRef}
+      className={`video-player${expandedMode ? ' is-expanded' : ''}`}
+    >
       {isYouTube && video?.videoId ? (
         <iframe
           ref={iframeRef}
@@ -599,27 +750,48 @@ export function VideoReadingView() {
         </button>
       )}
 
-      {expandedMode && currentPair && (showJapanese || showChinese) && (
-        <div className="video-overlay-subtitle">
-          {order.map((language) => {
-            if (language === 'ja' && !showJapanese) return null;
-            if (language === 'zh' && !showChinese) return null;
-            return (
-              <span
-                key={language}
-                className={`video-overlay-${language}`}
-                data-primary={
-                  visibleLanguages[0] === language ? 'true' : 'false'
-                }
-              >
-                {language === 'ja'
-                  ? currentPair.japanese
-                  : currentPair.chinese || '暂无译文'}
-              </span>
-            );
-          })}
-        </div>
-      )}
+      {(isYouTube || localUrl) &&
+        currentPair &&
+        (showJapanese || showChinese) && (
+          <div
+            ref={subtitleRef}
+            className={`video-overlay-subtitle${
+              draggingSubtitle ? ' is-dragging' : ''
+            }`}
+            style={{
+              left: `${subtitlePos.x * 100}%`,
+              top: `${subtitlePos.y * 100}%`,
+            }}
+            role="group"
+            aria-label="视频字幕，可拖动调整位置"
+            tabIndex={0}
+            title="拖动调整字幕位置，双击恢复默认"
+            onPointerDown={startSubtitleDrag}
+            onPointerMove={moveSubtitleDrag}
+            onPointerUp={endSubtitleDrag}
+            onPointerCancel={endSubtitleDrag}
+            onKeyDown={nudgeSubtitle}
+            onDoubleClick={resetSubtitlePosition}
+          >
+            {order.map((language) => {
+              if (language === 'ja' && !showJapanese) return null;
+              if (language === 'zh' && !showChinese) return null;
+              return (
+                <span
+                  key={language}
+                  className={`video-overlay-${language}`}
+                  data-primary={
+                    visibleLanguages[0] === language ? 'true' : 'false'
+                  }
+                >
+                  {language === 'ja'
+                    ? currentPair.japanese
+                    : currentPair.chinese || '暂无译文'}
+                </span>
+              );
+            })}
+          </div>
+        )}
     </div>
   );
 

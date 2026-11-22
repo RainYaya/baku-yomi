@@ -9,6 +9,7 @@ import {
   VIDEO_SIDE_MAX,
   VIDEO_SIDE_MIN,
 } from '../lib/video/layout';
+import type { SubtitlePoint } from '../lib/video/overlay';
 
 export type LayoutMode = 'alternating' | 'parallel';
 export type TTSProviderType = 'microsoft' | 'voicevox';
@@ -40,6 +41,8 @@ interface SettingsState {
   videoLanguageMode: VideoLanguageMode;
   /** Width of the video column on the video desk, in CSS pixels. */
   videoSideWidth: number;
+  /** Where each video's dragged subtitle sits, keyed by book id. */
+  videoSubtitlePositions: Record<string, SubtitlePoint>;
   /** Body typeface for Japanese reading; serif is best for long text. */
   readingFont: ReadingFont;
   vocabDensity: VocabDensity;
@@ -65,6 +68,7 @@ interface SettingsState {
   setPairOrder: (order: PairOrder) => void;
   setVideoLanguageMode: (mode: VideoLanguageMode) => void;
   setVideoSideWidth: (width: number) => void;
+  setVideoSubtitlePosition: (bookId: string, position: SubtitlePoint) => void;
   setReadingFont: (font: ReadingFont) => void;
   setVocabDensity: (density: VocabDensity) => void;
   changeFontZoom: (direction: 1 | -1) => void;
@@ -113,6 +117,9 @@ export const useSettingsStore = create<SettingsState>()(
       pairOrder: 'ja-zh' as PairOrder,
       videoLanguageMode: 'both' as VideoLanguageMode,
       videoSideWidth: VIDEO_SIDE_DEFAULT,
+      // Empty until a subtitle is dragged; a video without an entry uses the
+      // built-in bottom-centre position.
+      videoSubtitlePositions: {},
       readingFont: 'serif' as ReadingFont,
       // Scanning the wordbook beats admiring one entry: compact by default.
       vocabDensity: 'compact' as VocabDensity,
@@ -192,6 +199,18 @@ export const useSettingsStore = create<SettingsState>()(
             VIDEO_SIDE_MIN,
             Math.min(VIDEO_SIDE_MAX, Math.round(width))
           ),
+        }),
+
+      setVideoSubtitlePosition: (bookId, position) =>
+        set((state) => {
+          const round = (value: number) =>
+            Math.round(Math.min(1, Math.max(0, value)) * 10000) / 10000;
+          return {
+            videoSubtitlePositions: {
+              ...state.videoSubtitlePositions,
+              [bookId]: { x: round(position.x), y: round(position.y) },
+            },
+          };
         }),
 
       setReadingFont: (font) => set({ readingFont: font }),
