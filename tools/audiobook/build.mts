@@ -148,6 +148,19 @@ async function main() {
   const pairs = book.chapters.flatMap((chapter) => chapter.pairs);
   console.log(`章节 ${book.chapters.length} · 段落 ${pairs.length}`);
 
+  // A Japanese novel whose table of contents has kanji-only headings makes the
+  // importer pair neighbouring headings as if one translated the other. A
+  // genuinely bilingual book pairs far more than a few percent of its lines,
+  // so a stray handful here is noise.
+  const imported = pairs.filter((pair) => pair.translationSource === 'imported');
+  if (imported.length > 0 && imported.length < pairs.length * 0.03) {
+    for (const pair of imported) {
+      pair.chinese = '';
+      pair.translationSource = undefined;
+    }
+    console.log(`清掉 ${imported.length} 处误判的"译文"（目录里的汉字行）`);
+  }
+
   const cues = parseSrt(await readFile(options.srt, 'utf8'));
   if (cues.length === 0) throw new Error('字幕里没有可用的时间轴。');
   console.log(`字幕 ${cues.length} 条 · 末条 ${format(cues[cues.length - 1].endMs)}`);
