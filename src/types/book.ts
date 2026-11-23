@@ -14,6 +14,8 @@ export interface Book {
   chapterSeq?: number;
   /** Legacy tag grouping. Collections are books now; kept for old data. */
   collectionId?: string;
+  /** Present when the book plays a pre-generated audiobook. */
+  audio?: BookAudio;
 }
 
 export interface Collection {
@@ -30,7 +32,8 @@ export type BookSourceKind =
   | 'note'
   | 'ai'
   | 'subtitle'
-  | 'video';
+  | 'video'
+  | 'audiobook';
 
 export type VideoProvider = 'youtube' | 'local';
 
@@ -60,6 +63,23 @@ export interface BookSource {
   fileName?: string;
   /** Present on video books. */
   video?: VideoSource;
+}
+
+/** One audio file per chapter, positioned on the book's timeline. */
+export interface BookAudioChapter {
+  /** Index into `Book.chapters`. */
+  index: number;
+  /** File name under `BookAudio.base`. */
+  file: string;
+  /** Where this file starts on the book timeline, in milliseconds. */
+  startMs: number;
+  durationMs: number;
+}
+
+export interface BookAudio {
+  /** URL prefix the chapter files live under, without a trailing slash. */
+  base: string;
+  chapters: BookAudioChapter[];
 }
 
 export interface Chapter {

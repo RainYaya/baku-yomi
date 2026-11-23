@@ -6849,3 +6849,61 @@ body.video-subtitle-dragging * {
     padding: 14px;
   }
 }
+
+/* Audiobook desk: same frame as the video desk, without a resizer column. */
+.audio-stage .video-main {
+  grid-template-columns:
+    minmax(0, 1fr)
+    min(420px, calc(100% - 394px));
+  gap: 0 20px;
+}
+
+.audio-player {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sheet);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+}
+
+.audio-player audio {
+  width: 100%;
+  height: 36px;
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-controls .shelf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.audio-chapter-select {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  color: var(--text);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .audio-stage .video-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    overflow: auto;
+  }
+}

@@ -1,4 +1,5 @@
 import type { Book } from '../../types';
+import { readAudioAsset } from '../audio/asset';
 import { buildTextChapters } from '../import/textMaterial';
 
 /**
@@ -13,8 +14,11 @@ interface LocalSeedEntry {
   id?: string;
   title: string;
   author?: string;
-  kind?: 'book' | 'collection';
-  file: string;
+  kind?: 'book' | 'collection' | 'audiobook';
+  /** Text material, for `book` and `collection` entries. */
+  file?: string;
+  /** `asset.json` of an audiobook asset, for `audiobook` entries. */
+  asset?: string;
 }
 
 interface LocalSeedManifest {
@@ -43,7 +47,15 @@ export async function fetchLocalSeedLibrary(): Promise<Book[]> {
 
   const books: Book[] = [];
   for (const entry of manifest.books ?? []) {
-    if (!entry?.file || !entry.title) continue;
+    if (!entry?.title) continue;
+
+    if (entry.kind === 'audiobook') {
+      const book = await fetchAudioSeed(entry);
+      if (book) books.push(book);
+      continue;
+    }
+
+    if (!entry.file) continue;
     try {
       const response = await fetch(entry.file, { cache: 'no-store' });
       if (!response.ok) continue;
@@ -68,4 +80,29 @@ export async function fetchLocalSeedLibrary(): Promise<Book[]> {
     }
   }
   return books;
+}
+
+/**
+ * An audiobook asset is a directory holding `asset.json` and its chapter
+ * files; the book, its timings and the URL base all come from one fetch.
+ */
+async function fetchAudioSeed(entry: LocalSeedEntry): Promise<Book | null> {
+  if (!entry.asset) return null;
+
+  try {
+    const response = await fetch(entry.asset, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const base = entry.asset.replace(/\/asset\.json$/, '');
+    const book = readAudioAsset(await response.json(), { base });
+    if (!book) return null;
+
+    return {
+      ...book,
+      demo: true,
+      title: entry.title.trim() || book.title,
+      author: entry.author?.trim() || book.author,
+    };
+  } catch {
+    return null;
+  }
 }

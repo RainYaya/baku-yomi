@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "test": "node --import tsx --test tests/*.test.ts",
     "import:wechat": "node scripts/wechat-album-import.mjs",
-    "seed:local": "node scripts/install-local-seed.mjs"
+    "seed:local": "node scripts/install-local-seed.mjs",
+    "audiobook:build": "node --import tsx tools/audiobook/build.mts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

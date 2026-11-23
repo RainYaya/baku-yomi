@@ -1,5 +1,7 @@
 export type {
   Book,
+  BookAudio,
+  BookAudioChapter,
   BookSource,
   BookSourceKind,
   Chapter,

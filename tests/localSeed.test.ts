@@ -85,3 +85,90 @@ test('skips an entry whose file is missing', async () => {
     restore();
   }
 });
+
+const AUDIO_MANIFEST = {
+  books: [
+    {
+      id: 'audiobook-sample',
+      title: '有声样本',
+      kind: 'audiobook',
+      asset: '/api/audio/sample/asset.json',
+    },
+  ],
+};
+
+const AUDIO_ASSET = {
+  version: 1,
+  book: {
+    id: 'audiobook-sample',
+    title: '有声样本',
+    author: '作者',
+    importedAt: 0,
+    chapters: [
+      {
+        id: 'audiobook-sample-ch0',
+        title: '第一章',
+        index: 0,
+        pairs: [
+          {
+            id: 'audiobook-sample-ch0-p0',
+            japanese: 'おはよう。',
+            chinese: '',
+            chapterIndex: 0,
+            pairIndex: 0,
+            startMs: 0,
+            endMs: 2000,
+          },
+        ],
+      },
+    ],
+  },
+  audio: {
+    chapters: [{ index: 0, file: 'ch000.opus', startMs: 0, durationMs: 60000 }],
+  },
+};
+
+test('loads an audiobook entry from the local seed manifest', async () => {
+  const restore = mockFetch((url) => {
+    if (url.endsWith('/default-library.json')) {
+      return new Response(JSON.stringify(AUDIO_MANIFEST), { status: 200 });
+    }
+    if (url.endsWith('/api/audio/sample/asset.json')) {
+      return new Response(JSON.stringify(AUDIO_ASSET), { status: 200 });
+    }
+    return new Response('', { status: 404 });
+  });
+
+  try {
+    const books = await fetchLocalSeedLibrary();
+    assert.equal(books.length, 1);
+    const book = books[0];
+    assert.equal(book.id, 'audiobook-sample');
+    assert.equal(book.source?.kind, 'audiobook');
+    assert.equal(book.demo, true);
+    assert.deepEqual(book.audio, {
+      base: '/api/audio/sample',
+      chapters: [
+        { index: 0, file: 'ch000.opus', startMs: 0, durationMs: 60000 },
+      ],
+    });
+    assert.equal(book.chapters[0].pairs[0].startMs, 0);
+  } finally {
+    restore();
+  }
+});
+
+test('skips an audiobook entry whose asset is missing', async () => {
+  const restore = mockFetch((url) => {
+    if (url.endsWith('/default-library.json')) {
+      return new Response(JSON.stringify(AUDIO_MANIFEST), { status: 200 });
+    }
+    return new Response('', { status: 404 });
+  });
+
+  try {
+    assert.deepEqual(await fetchLocalSeedLibrary(), []);
+  } finally {
+    restore();
+  }
+});

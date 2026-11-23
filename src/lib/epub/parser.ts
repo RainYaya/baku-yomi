@@ -108,15 +108,30 @@ function extractCoverFromSpineHtml(
   return undefined;
 }
 
-export async function parseEpubFile(file: File): Promise<Book> {
-  const epub: EpubFile = await initEpubFile(file);
+export interface BuildBookFromEpubOptions {
+  /** Used only when the EPUB has no title metadata. */
+  fileName: string;
+  bookId: string;
+}
 
+/**
+ * Build the book from an already-opened EPUB.
+ *
+ * Split out of `parseEpubFile` so the audiobook builder can run the same
+ * extraction in Node, where `initEpubFile` takes a path and the cover cannot
+ * be turned into a data URL.
+ */
+export async function buildBookFromEpub(
+  epub: EpubFile,
+  options: BuildBookFromEpubOptions
+): Promise<Book> {
   const metadata = epub.getMetadata?.() ?? epub.metadata ?? {};
-  const title = extractText(metadata.title) ?? file.name.replace(/\.epub$/i, '');
+  const title =
+    extractText(metadata.title) ?? options.fileName.replace(/\.epub$/i, '');
   const author = extractCreator(metadata.creator) ?? 'Unknown';
   const description = extractText(metadata.description) ?? undefined;
   const publisher = extractText(metadata.publisher) ?? undefined;
-  const bookId = createBookId();
+  const bookId = options.bookId;
 
   const spine: { id: string; href: string }[] =
     epub.getSpine?.() ?? epub.spine ?? [];
@@ -224,4 +239,12 @@ export async function parseEpubFile(file: File): Promise<Book> {
     chapters,
     importedAt: Date.now(),
   };
+}
+
+export async function parseEpubFile(file: File): Promise<Book> {
+  const epub: EpubFile = await initEpubFile(file);
+  return buildBookFromEpub(epub, {
+    fileName: file.name,
+    bookId: createBookId(),
+  });
 }

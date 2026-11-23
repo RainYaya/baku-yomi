@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ReadingView } from './components/reader/ReadingView';
 import { VideoReadingView } from './components/reader/VideoReadingView';
+import { AudioReadingView } from './components/reader/AudioReadingView';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { BookshelfPage } from './components/bookshelf/BookshelfPage';
 import { HomePage } from './components/home/HomePage';
@@ -18,11 +19,11 @@ export default function App() {
   const hasCurrentBook = useBookStore((s) =>
     s.books.some((book) => book.id === s.currentBookId)
   );
-  const isVideoBook = useBookStore(
-    (s) =>
-      s.books.find((book) => book.id === s.currentBookId)?.source?.kind ===
-      'video'
+  const currentKind = useBookStore(
+    (s) => s.books.find((book) => book.id === s.currentBookId)?.source?.kind
   );
+  const isVideoBook = currentKind === 'video';
+  const isAudioBook = currentKind === 'audiobook';
   const pairOrder = useSettingsStore((s) => s.pairOrder);
 
   // Typography follows the global order through one root attribute, so every
@@ -38,6 +39,8 @@ export default function App() {
       {currentView === 'reader' && hasCurrentBook ? (
         isVideoBook ? (
           <VideoReadingView />
+        ) : isAudioBook ? (
+          <AudioReadingView />
         ) : (
           <ReadingView />
         )

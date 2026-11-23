@@ -380,3 +380,63 @@ Content-Type: application/json
 
 - 本设计未使用画板；UI 复用现有阅读器控件与设计 token。
 - 相关既有文档：`docs/ryugi/specs/2026-11-22-video-material-design.md`（视频时间轴与按内容存储的先例）。
+
+---
+
+## 14. 追加：导入现成有声书（2026-11-23）
+
+### 14.1 为什么改
+
+用户找到一整套「EPUB + M4B 有声书 + 人工 SRT 字幕」（無職転生 第 1 卷）。实测证明这套素材可以直接对齐，于是主线从「在 4080 上生成 TTS」换成「导入现成有声书」，TTS 降级为没有字幕时的兜底。
+
+实测数据：
+
+| 项 | 值 |
+| --- | --- |
+| EPUB | 13 个章节、4,232 段，ruby 注音可剥离 |
+| M4B | 7h23m，AAC 22.05kHz 立体声 63kbps，无章节标记 |
+| SRT | 8,597 条，中位 13 字（短语级，会切在句中） |
+| 段落对齐 | 4,044 / 4,232（96%）；其余由锚点间插值补齐 |
+| 朗读速度 | 4.32 字/秒 |
+| Opus 32k 单声道 | 82.5MB（原文件 201MB） |
+
+### 14.2 数据模型
+
+`Book.audio?: { base, chapters: [{ index, file, startMs, durationMs }] }`。
+
+- 每章一个 Opus 文件，`index` 指向 `Book.chapters`。
+- 段落时间戳 `SentencePair.startMs/endMs` 用**全书绝对时间**，与视频模型一致，直接复用 `pairIndexAtTime`。
+- 播放时 `local = pair.startMs - audioChapter.startMs`。
+- 没有语音的章节（目录页等）不生成文件；前端提示"这一章没有语音"。
+
+### 14.3 资产目录（服务器，仓库外）
+
+```
+~/baku-yomi-data/audio/<assetId>/
+  asset.json      # { version: 1, book, audio: { chapters } }
+  ch003.opus      # 每章一个文件
+```
+
+`asset.json` 内含整本书（章节、段落、译文、时间），前端一次请求即可上架，不需要在浏览器里解析 EPUB 或跑对齐。
+
+### 14.4 工具
+
+`pnpm audiobook:build --epub --srt --audio --id --title --out [--bitrate 32k]`
+
+1. Node 里用 `initEpubFile(path)` + `buildBookFromEpub()` 得到与 App 完全一致的 Book。
+2. `parseSrt` 解析字幕，`alignPairsToCues` 做锚点对齐 + 间隔插值。
+3. ffmpeg 按章节边界切成 Opus 单声道，边界取两章之间静音的中点。
+4. 写 `asset.json`。
+
+### 14.5 服务端与前端
+
+- `server/routes/audio.ts`：`GET /api/audio/list`、`GET /api/audio/:id/asset.json`、`GET /api/audio/:id/:file`（支持 Range/206，路径穿越与非法文件名拒绝）。
+- `src/lib/seed/localSeed.ts`：`default-library.json` 增加 `kind: "audiobook"` + `asset` 条目，首次打开自动上架，标记 `demo: true`。
+- `AudioReadingView`：竖向文稿 + 原生 audio 控件，当前句高亮、点击跳转、跟随滚动、跨章自动续播、章节切换、日中/中日语言切换、字号。
+
+### 14.6 仍然成立的限制
+
+- 只有「书 + 人工字幕 + 音频」三件套都在时才能导入；缺字幕仍需 TTS。
+- 二次有损转码（AAC → Opus 32k）；24k 可再省 1/4，iOS Safari 不支持 Ogg/Opus，因此只保证桌面 Chromium/Android。
+- 目录页里「只有汉字没有假名」的行会被 EPUB 导入器误判成中文译文（既有行为，与音频无关）。
+- 章节标题跟随 EPUB 目录：多个目录项指向同一个 XHTML 时，标题会取最靠后的那个。

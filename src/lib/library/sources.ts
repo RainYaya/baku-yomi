@@ -20,6 +20,7 @@ const GROUP_OF: Record<BookSourceKind, SourceGroup> = {
   ai: 'ai',
   subtitle: 'subtitle',
   video: 'video',
+  audiobook: 'book',
 };
 
 const LABEL_OF: Record<BookSourceKind, string> = {
@@ -31,6 +32,7 @@ const LABEL_OF: Record<BookSourceKind, string> = {
   ai: 'AI 情景',
   subtitle: '字幕',
   video: '视频',
+  audiobook: '有声书',
 };
 
 function kindOf(book: Book): BookSourceKind | undefined {
