@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../stores/settingsSlice';
 import { usePracticeStore } from '../../stores/practiceSlice';
 import { useBookmarkStore, BOOKMARK_COLORS } from '../../stores/bookmarkSlice';
 import { bookmarkedHtml } from '../../lib/textMarkup';
+import { SaveSentenceButton } from '../saved/SaveSentenceButton';
 import {
   playVoicevox,
   seekVoicevox,
@@ -265,6 +266,7 @@ function SentencePairCardComponent({
           >
             講解 <kbd>E</kbd>
           </button>
+          <SaveSentenceButton pair={pair} />
           {onRetranslate && (
             <button
               className="paper-chip"

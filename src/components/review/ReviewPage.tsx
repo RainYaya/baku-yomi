@@ -12,6 +12,7 @@ import {
   FiSearch,
   FiSettings,
   FiShuffle,
+  FiStar,
 } from 'react-icons/fi';
 import { errorCategoriesOf } from '../../lib/analysis/errorCategories';
 import {
@@ -142,6 +143,13 @@ export function ReviewPage() {
               aria-label="搜索练习记录"
             />
           </label>
+          <button
+            className="shelf-btn"
+            onClick={() => setCurrentView('saved')}
+            title="打开收藏句"
+          >
+            <FiStar size={13} /> 收藏句
+          </button>
           <button
             className="shelf-btn"
             onClick={() => setCurrentView('bookshelf')}

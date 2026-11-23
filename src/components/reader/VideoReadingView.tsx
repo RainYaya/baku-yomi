@@ -23,6 +23,7 @@ import {
 import { registerKeyboardHandler } from '../../lib/keyboard';
 import { pairOrderLines } from '../../lib/pairOrder';
 import { bookmarkedHtml } from '../../lib/textMarkup';
+import { SaveSentenceButton } from '../saved/SaveSentenceButton';
 import { formatDuration } from '../../lib/import/videoFiles';
 import { getSessionVideoFile } from '../../lib/video/sessionFiles';
 import { fileMetadataMatches } from '../../lib/video/localVideo';
@@ -1064,6 +1065,7 @@ export function VideoReadingView() {
                   );
                 })}
                 <div className="video-current-actions">
+                  <SaveSentenceButton pair={currentPair} className="shelf-btn" />
                   <button
                     className="shelf-btn"
                     onClick={() => openInline(currentPair, 'explain')}

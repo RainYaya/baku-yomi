@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import type { VocabDraft, VocabEntry } from '../types';
 
-export type AppView = 'home' | 'bookshelf' | 'reader' | 'review' | 'vocab' | 'note';
+export type AppView =
+  | 'home'
+  | 'bookshelf'
+  | 'reader'
+  | 'review'
+  | 'vocab'
+  | 'note'
+  | 'saved';
 
 export interface VocabDialogRequest {
   /** Remounts the form when the dialog switches to another word. */

@@ -8,6 +8,7 @@ import { HomePage } from './components/home/HomePage';
 import { ReviewPage } from './components/review/ReviewPage';
 import { VocabPage } from './components/vocab/VocabPage';
 import { NotePage } from './components/note/NotePage';
+import { SavedSentencesPage } from './components/saved/SavedSentencesPage';
 import { VocabDetailDialog } from './components/vocab/VocabDetailDialog';
 import { StorageHealthNotice } from './components/layout/StorageHealthNotice';
 import { useUIStore } from './stores/uiSlice';
@@ -52,6 +53,8 @@ export default function App() {
         <VocabPage />
       ) : currentView === 'note' ? (
         <NotePage />
+      ) : currentView === 'saved' ? (
+        <SavedSentencesPage />
       ) : (
         <HomePage />
       )}

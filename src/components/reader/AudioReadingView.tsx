@@ -14,6 +14,7 @@ import { useUIStore } from '../../stores/uiSlice';
 import type { BookAudio, SentencePair } from '../../types';
 import { formatTimecode, pairIndexAtTime } from '../../lib/video/timeline';
 import { ChapterTranslationBar } from './ChapterTranslationBar';
+import { SaveSentenceButton } from '../saved/SaveSentenceButton';
 import { ReadingFontMenu } from './ReadingFontMenu';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 
@@ -430,21 +431,26 @@ export function AudioReadingView() {
             </header>
 
             {currentPair ? (
-              order.map((language) => {
-                if (language === 'ja' && !showJapanese) return null;
-                if (language === 'zh' && !showChinese) return null;
-                return (
-                  <div
-                    key={language}
-                    className="video-current-order"
-                    data-primary={visibleLanguages[0] === language ? 'true' : 'false'}
-                  >
-                    {language === 'ja'
-                      ? currentPair.japanese
-                      : currentPair.chinese || '暂无译文'}
-                  </div>
-                );
-              })
+              <>
+                {order.map((language) => {
+                  if (language === 'ja' && !showJapanese) return null;
+                  if (language === 'zh' && !showChinese) return null;
+                  return (
+                    <div
+                      key={language}
+                      className="video-current-order"
+                      data-primary={visibleLanguages[0] === language ? 'true' : 'false'}
+                    >
+                      {language === 'ja'
+                        ? currentPair.japanese
+                        : currentPair.chinese || '暂无译文'}
+                    </div>
+                  );
+                })}
+                <div className="video-current-actions">
+                  <SaveSentenceButton pair={currentPair} className="shelf-btn" />
+                </div>
+              </>
             ) : (
               <p className="video-empty">点任意一段开始播放。</p>
             )}

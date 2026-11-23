@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useBookStore } from '../../stores/bookSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
+import { useSavedSentenceStore } from '../../stores/savedSentenceSlice';
 import { useEpubParser } from '../../hooks/useEpubParser';
 import { BookCard } from '../bookshelf/BookCard';
 import { PasteTextDialog } from '../import/PasteTextDialog';
@@ -25,6 +26,7 @@ import {
   FiSearch,
   FiSettings,
   FiShuffle,
+  FiStar,
 } from 'react-icons/fi';
 
 const RECENT_LIMIT = 6;
@@ -61,6 +63,7 @@ export function HomePage() {
   const createCollectionBook = useBookStore((s) => s.createCollectionBook);
   const setCurrentView = useUIStore((s) => s.setCurrentView);
   const openSettings = useUIStore((s) => s.openSettings);
+  const savedCount = useSavedSentenceStore((s) => s.sentences.length);
   const { parseFile, parsing } = useEpubParser();
   const { unread: noteUnread, sourceCount: noteSourceCount } = useNoteUnread();
   const analyses = usePracticeStore((s) => s.analyses);
@@ -241,6 +244,16 @@ export function HomePage() {
           >
             <FiClipboard size={13} aria-hidden="true" />
             练习记录
+          </button>
+
+          <button
+            className="shelf-btn"
+            onClick={() => setCurrentView('saved')}
+            title="打开收藏句"
+          >
+            <FiStar size={13} aria-hidden="true" />
+            收藏
+            {savedCount > 0 && <span className="note-entry-count">{savedCount}</span>}
           </button>
 
           <button
