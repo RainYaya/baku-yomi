@@ -15,7 +15,9 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "import:wechat": "node scripts/wechat-album-import.mjs",
     "seed:local": "node scripts/install-local-seed.mjs",
-    "audiobook:build": "node --import tsx tools/audiobook/build.mts"
+    "audiobook:build": "node --import tsx tools/audiobook/build.mts",
+    "tts:worker": "node --env-file-if-exists=.env --import tsx worker/index.ts",
+    "tts:mock": "node --import tsx worker/mock-tts.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

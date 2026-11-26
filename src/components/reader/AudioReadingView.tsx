@@ -9,11 +9,16 @@ import {
   FiVolume2,
 } from 'react-icons/fi';
 import { useBookStore } from '../../stores/bookSlice';
+import { usePracticeStore } from '../../stores/practiceSlice';
 import { useSettingsStore } from '../../stores/settingsSlice';
 import { useUIStore } from '../../stores/uiSlice';
 import type { BookAudio, SentencePair } from '../../types';
 import { formatTimecode, pairIndexAtTime } from '../../lib/video/timeline';
+import { useMachine } from '../../machines/react';
+import { readerSessionMachine, sessionPairId } from '../../machines/reader';
 import { ChapterTranslationBar } from './ChapterTranslationBar';
+import { InlinePracticeCard, type InlineTab } from './InlinePracticeCard';
+import { PracticeDesk } from './PracticeDesk';
 import { SaveSentenceButton } from '../saved/SaveSentenceButton';
 import { ReadingFontMenu } from './ReadingFontMenu';
 import { ThemeToggle } from '../../theme/ThemeToggle';
@@ -48,6 +53,11 @@ export function AudioReadingView() {
   );
   const chapterIndex = useBookStore((state) => state.currentChapterIndex);
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
+  const scrollToPairId = useBookStore((state) => state.scrollToPairId);
+  const setScrollToPairId = useBookStore((state) => state.setScrollToPairId);
+  const practicePairId = useBookStore((state) => state.practicePairId);
+  const setPracticePairId = useBookStore((state) => state.setPracticePairId);
+  const analyses = usePracticeStore((state) => state.analyses);
   const setCurrentView = useUIStore((state) => state.setCurrentView);
   const openSettings = useUIStore((state) => state.openSettings);
   const pairOrder = useSettingsStore((state) => state.pairOrder);
@@ -64,6 +74,15 @@ export function AudioReadingView() {
   const [currentMs, setCurrentMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [follow, setFollow] = useState(true);
+
+  const { state: session, send: sendSession } = useMachine(readerSessionMachine, {
+    debugId: 'audio.session',
+    debug: false,
+  });
+  const inlineInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const deskInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [inlineTab, setInlineTab] = useState<InlineTab>('practice');
+  const [explainFragment, setExplainFragment] = useState('');
 
   const audio = currentBook?.audio;
   const chapter = currentBook?.chapters[chapterIndex];
@@ -124,10 +143,61 @@ export function AudioReadingView() {
       const element = audioRef.current;
       if (!element) return;
       element.currentTime = local / 1000;
-      void element.play();
+      void element.play().catch(() => {});
     },
     [audio, chapterIndex, pairs, setCurrentChapter]
   );
+
+  const openInline = useCallback(
+    (pair: SentencePair, tab: InlineTab) => {
+      if (sessionPairId(session) !== pair.id) {
+        sendSession({
+          type: 'SELECT',
+          pairId: pair.id,
+          hasAnalysis: Boolean(analyses[pair.id]),
+        });
+      }
+      setInlineTab(tab);
+      setExplainFragment('');
+      sendSession({ type: 'OPEN_INLINE' });
+      setFollow(false);
+    },
+    [analyses, sendSession, session]
+  );
+
+  // Review "回到原句" / "再练一次" and the saved page's "练这句" arrive as
+  // transient store commands. Seek to the sentence, and open the practice card
+  // when the command asks for it.
+  useEffect(() => {
+    if (!scrollToPairId || !chapter) return;
+    const frame = requestAnimationFrame(() => {
+      const pair = pairs.find((item) => item.id === scrollToPairId);
+      if (!pair) {
+        setScrollToPairId(null);
+        setPracticePairId(null);
+        return;
+      }
+
+      seekToPair(pair);
+      setFollow(false);
+      if (practicePairId === scrollToPairId) {
+        openInline(pair, 'practice');
+        setPracticePairId(null);
+      }
+      setScrollToPairId(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    chapter,
+    openInline,
+    pairs,
+    practicePairId,
+    scrollToPairId,
+    seekToPair,
+    setPracticePairId,
+    setScrollToPairId,
+  ]);
 
   const togglePlay = useCallback(() => {
     const element = audioRef.current;
@@ -189,6 +259,8 @@ export function AudioReadingView() {
     setCurrentMs(0);
     setCurrentChapter(index);
   };
+
+  const selectedPair = pairs.find((pair) => pair.id === session.pairId);
 
   return (
     <div
@@ -342,6 +414,22 @@ export function AudioReadingView() {
                       );
                     })}
                   </div>
+
+                  {session.surface === 'inline' && session.pairId === pair.id && (
+                    <div className="video-inline">
+                      <InlinePracticeCard
+                        pair={pair}
+                        session={session}
+                        tab={inlineTab}
+                        fragment={explainFragment}
+                        onTabChange={setInlineTab}
+                        onClose={() => sendSession({ type: 'CLOSE' })}
+                        onOpenDesk={() => sendSession({ type: 'OPEN_DESK' })}
+                        onSessionEvent={sendSession}
+                        inputRef={inlineInputRef}
+                      />
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -449,6 +537,18 @@ export function AudioReadingView() {
                 })}
                 <div className="video-current-actions">
                   <SaveSentenceButton pair={currentPair} className="shelf-btn" />
+                  <button
+                    className="shelf-btn"
+                    onClick={() => openInline(currentPair, 'explain')}
+                  >
+                    講解
+                  </button>
+                  <button
+                    className="shelf-btn primary"
+                    onClick={() => openInline(currentPair, 'practice')}
+                  >
+                    练这句
+                  </button>
                 </div>
               </>
             ) : (
@@ -457,6 +557,21 @@ export function AudioReadingView() {
           </section>
         </aside>
       </main>
+
+      {session.surface === 'desk' && selectedPair && chapter && (
+        <PracticeDesk
+          pair={selectedPair}
+          chapter={chapter}
+          session={session}
+          tab={inlineTab}
+          fragment={explainFragment}
+          onTabChange={setInlineTab}
+          onBack={() => sendSession({ type: 'BACK' })}
+          onClose={() => sendSession({ type: 'CLOSE' })}
+          onSessionEvent={sendSession}
+          inputRef={deskInputRef}
+        />
+      )}
     </div>
   );
 }

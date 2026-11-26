@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
@@ -14,6 +14,8 @@ export const DEFAULT_AUDIO_DIR = join(homedir(), 'baku-yomi-data', 'audio');
 
 const ASSET_ID = /^[a-z0-9][a-z0-9-]*$/;
 const AUDIO_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:opus|ogg)$/;
+/** Files the TTS worker may upload into a new asset directory. */
+const ASSET_FILE = /^(?:asset\.json\.next|[A-Za-z0-9][A-Za-z0-9._-]*\.(?:opus|ogg))$/;
 
 export interface AudioAssetSummary {
   id: string;
@@ -140,9 +142,68 @@ async function summarize(dir: string, id: string): Promise<AudioAssetSummary | n
   }
 }
 
-export function createAudioRoute(options?: { dir?: string }) {
+export interface AudioRouteOptions {
+  dir?: string;
+  /** Overrides BAKU_IMPORT_TOKEN; `null` makes imports always forbidden. */
+  importToken?: string | null;
+}
+
+/** What the worker is allowed to publish, or the reason it is not. */
+type ManifestCheck = { files: string[] } | { error: string };
+
+/**
+ * A manifest replaces the live one only when it is complete and describes
+ * this very asset. Chapter files carry a content hash in their name, so a
+ * failed or cancelled upload leaves the previous audiobook untouched instead
+ * of mixing old and new chapters under the old timings.
+ */
+function checkManifest(raw: string, id: string): ManifestCheck {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: 'asset.json.next is not JSON' };
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    return { error: 'asset.json.next is not an object' };
+  }
+
+  const asset = parsed as {
+    version?: unknown;
+    book?: { id?: unknown };
+    audio?: { chapters?: unknown };
+  };
+  if (asset.version !== 1) return { error: 'version must be 1' };
+  if (typeof asset.book !== 'object' || asset.book === null) {
+    return { error: 'book is missing' };
+  }
+  if (asset.book.id !== id) {
+    return { error: `book id ${String(asset.book.id)} does not match ${id}` };
+  }
+  if (!Array.isArray(asset.audio?.chapters)) {
+    return { error: 'audio.chapters is missing' };
+  }
+
+  const files: string[] = [];
+  for (const chapter of asset.audio.chapters) {
+    const file = (chapter as { file?: unknown } | null)?.file;
+    if (typeof file !== 'string' || !AUDIO_FILE.test(file)) {
+      return { error: `bad chapter file ${String(file)}` };
+    }
+    files.push(file);
+  }
+  return { files };
+}
+
+export function createAudioRoute(options?: AudioRouteOptions) {
   const route = new Hono();
   const dir = options?.dir ?? audioDir();
+  const configuredToken = options?.importToken;
+
+  function importToken(): string | null {
+    if (configuredToken !== undefined) return configuredToken;
+    return process.env.BAKU_IMPORT_TOKEN || null;
+  }
 
   route.get('/audio/list', async (c) => {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -155,6 +216,97 @@ export function createAudioRoute(options?: { dir?: string }) {
     }
 
     return c.json({ assets });
+  });
+
+  /**
+   * The TTS worker uploads pre-encoded chapter files here. Ids match the
+   * regular asset rule and every file name stays one path segment, so a
+   * traversal attempt is rejected before touching the disk.
+   */
+  route.put('/audio/import/:id/:file', async (c) => {
+    const token = importToken();
+    if (!token || c.req.header('x-baku-import-token') !== token) {
+      return c.json({ error: 'forbidden' }, 403);
+    }
+
+    const id = c.req.param('id');
+    const file = c.req.param('file');
+    if (!ASSET_ID.test(id) || !ASSET_FILE.test(file)) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    const assetDir = inside(dir, id);
+    const path = inside(dir, id, file);
+    if (!assetDir || !path) return c.json({ error: 'not_found' }, 404);
+
+    const temp = `${path}.part`;
+    try {
+      await mkdir(assetDir, { recursive: true });
+      await writeFile(temp, Buffer.from(await c.req.arrayBuffer()));
+      await rename(temp, path);
+    } catch {
+      await rm(temp, { force: true }).catch(() => undefined);
+      return c.json({ error: 'write_failed' }, 500);
+    }
+
+    return c.json({ ok: true, id, file });
+  });
+
+  route.post('/audio/import/:id/finish', async (c) => {
+    const token = importToken();
+    if (!token || c.req.header('x-baku-import-token') !== token) {
+      return c.json({ error: 'forbidden' }, 403);
+    }
+
+    const id = c.req.param('id');
+    if (!ASSET_ID.test(id)) return c.json({ error: 'not_found' }, 404);
+
+    const assetDir = inside(dir, id);
+    const nextPath = inside(dir, id, 'asset.json.next');
+    const assetPath = inside(dir, id, 'asset.json');
+    if (!assetDir || !nextPath || !assetPath) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    const raw = await readFile(nextPath, 'utf8').catch(() => null);
+    if (raw === null) return c.json({ error: 'asset_missing' }, 400);
+
+    const check = checkManifest(raw, id);
+    if ('error' in check) {
+      await rm(nextPath, { force: true }).catch(() => undefined);
+      return c.json({ error: 'asset_invalid', detail: check.error }, 400);
+    }
+
+    for (const file of check.files) {
+      const path = inside(dir, id, file);
+      const info = path
+        ? await stat(path).catch(() => null)
+        : null;
+      if (!info || !info.isFile() || info.size === 0) {
+        await rm(nextPath, { force: true }).catch(() => undefined);
+        return c.json(
+          { error: 'asset_invalid', detail: `missing or empty ${file}` },
+          400
+        );
+      }
+    }
+
+    // Everything the manifest names is on disk: swap it in, then drop the
+    // chapters from the generation this one replaced.
+    await rename(nextPath, assetPath);
+    const keep = new Set(check.files);
+    const entries = await readdir(assetDir, { withFileTypes: true }).catch(
+      () => []
+    );
+    for (const entry of entries) {
+      if (!entry.isFile() || keep.has(entry.name)) continue;
+      if (!AUDIO_FILE.test(entry.name)) continue;
+      await rm(join(assetDir, entry.name), { force: true }).catch(
+        () => undefined
+      );
+    }
+
+    return c.json({ ok: true, id });
   });
 
   route.get('/audio/:id/asset.json', async (c) => {

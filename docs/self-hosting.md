@@ -57,7 +57,6 @@ docker compose --profile voicevox up -d
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3003` | 服务端口 |
-| `TTS_DEFAULT_PROVIDER` | `microsoft` | 默认 TTS 引擎（`microsoft` / `voicevox`） |
 | `VOICEVOX_ENGINE_URL` | `http://voicevox:50021` | VOICEVOX 引擎地址（Docker 网络内自动解析） |
 | `TTS_CACHE_MAX_BYTES` | `125829120` | 服务端 TTS 缓存上限（字节，默认 120MB） |
 

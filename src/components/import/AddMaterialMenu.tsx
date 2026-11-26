@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { FiCpu, FiEdit3, FiFilm, FiGlobe, FiPlus, FiUpload, FiVideo } from 'react-icons/fi';
+import { FiCpu, FiEdit3, FiFilm, FiGlobe, FiHeadphones, FiPlus, FiUpload, FiVideo } from 'react-icons/fi';
 
 interface Props {
   onEpub: (file: File) => void;
   onPaste: () => void;
   onSubtitle?: () => void;
   onVideo?: () => void;
+  onServerAudio?: () => void;
   onGenerate?: () => void;
   onNote?: () => void;
   uploading?: boolean;
@@ -23,6 +24,7 @@ export function AddMaterialMenu({
   onPaste,
   onSubtitle,
   onVideo,
+  onServerAudio,
   onGenerate,
   onNote,
   uploading = false,
@@ -119,6 +121,21 @@ export function AddMaterialMenu({
             <span>
               <b>导入字幕</b>
               <small>SRT / VTT，双语或单语</small>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="add-material-item"
+            role="menuitem"
+            disabled={!onServerAudio}
+            title={onServerAudio ? undefined : '服务器有声书即将支持'}
+            onClick={() => closeAnd(onServerAudio)}
+          >
+            <FiHeadphones size={15} aria-hidden="true" />
+            <span>
+              <b>服务器有声书</b>
+              <small>已放在本机服务器上的整本书 + 语音</small>
             </span>
           </button>
 

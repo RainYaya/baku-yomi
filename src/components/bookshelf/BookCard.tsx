@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import type { Book } from '../../types';
 import { useBookStore } from '../../stores/bookSlice';
 import { sourceLabel } from '../../lib/library/sources';
-import { FiPlay, FiEdit2, FiTrash2, FiLayers, FiFileText } from 'react-icons/fi';
+import { FiPlay, FiEdit2, FiTrash2, FiLayers, FiFileText, FiHeadphones } from 'react-icons/fi';
 
 interface Props {
   book: Book;
   onOpen: () => void;
+  /** Offer whole-book TTS generation for text books without audio. */
+  onGenerateAudio?: (bookId: string) => void;
 }
 
 function calcProgressPct(book: Book, readingProgress: Record<string, number>): number {
@@ -33,7 +35,7 @@ function authorName(author: string): string {
   return author && author !== '[object Object]' ? author : '未知作者';
 }
 
-export function BookCard({ book, onOpen }: Props) {
+export function BookCard({ book, onOpen, onGenerateAudio }: Props) {
   const readingProgress = useBookStore((s) => s.readingProgress);
   const removeBook = useBookStore((s) => s.removeBook);
   const renameBook = useBookStore((s) => s.renameBook);
@@ -180,6 +182,16 @@ export function BookCard({ book, onOpen }: Props) {
                     ? '继续阅读'
                     : '开始阅读'}
               </button>
+              {onGenerateAudio && book.chapters.length > 0 && !book.audio && (
+                <button
+                  className="bookshelf-btn-icon"
+                  onClick={() => onGenerateAudio(book.id)}
+                  title="生成有声书"
+                  aria-label={`为《${book.title}》生成有声书`}
+                >
+                  <FiHeadphones size={14} />
+                </button>
+              )}
               <button
                 className="bookshelf-btn-icon"
                 onClick={() => setEditing(true)}

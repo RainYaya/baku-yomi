@@ -11,15 +11,6 @@ const providers = new Map<string, TTSProvider>();
 providers.set('voicevox', new VoicevoxProvider());
 providers.set('microsoft', new MicrosoftTTSProvider());
 
-const defaultProviderName = process.env.TTS_DEFAULT_PROVIDER ?? 'microsoft';
-
-function getProvider(name?: string): TTSProvider {
-  const key = name ?? defaultProviderName;
-  const provider = providers.get(key);
-  if (!provider) throw new Error(`Unknown TTS provider: ${key}`);
-  return provider;
-}
-
 // ---------------------------------------------------------------------------
 // Server-side TTS cache (shared across all providers)
 // ---------------------------------------------------------------------------
@@ -95,53 +86,52 @@ tts.post('/cache/clear', (c) => {
   return c.json({ ok: true });
 });
 
-// Speakers list
-tts.get('/:provider/speakers', async (c) => {
-  const providerName = c.req.param('provider');
+// Speakers list and synthesis are registered once per provider instead of as
+// `/:provider` catch-alls: the app also mounts the audiobook generation proxy
+// under `/tts`, and a catch-all here would take its `/tts/jobs` requests for a
+// synthesis call to a provider named "jobs".
+for (const [name, provider] of providers) {
+  tts.get(`/${name}/speakers`, async (c) => {
+    try {
+      const speakers = await provider.getSpeakers();
+      return c.json(speakers, 200);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return c.json({ error: message }, 500);
+    }
+  });
 
-  try {
-    const provider = getProvider(providerName);
-    const speakers = await provider.getSpeakers();
-    return c.json(speakers, 200);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    return c.json({ error: message }, 500);
-  }
-});
+  tts.post(`/${name}`, async (c) => {
+    const body = await c.req.json();
+    const { text, speaker = 1, options } = body ?? {};
 
-// Synthesize — works for any provider
-tts.post('/:provider', async (c) => {
-  const providerName = c.req.param('provider');
-  const body = await c.req.json();
-  const { text, speaker = 1, options } = body ?? {};
-
-  if (!text || typeof text !== 'string') {
-    return c.json({ error: 'Missing required field: text' }, 400);
-  }
-
-  try {
-    const provider = getProvider(providerName);
-    const cacheKey = makeCacheKey(provider.name, text, speaker, options);
-    const contentType = provider.name === 'microsoft' ? 'audio/mpeg' : 'audio/wav';
-
-    const cached = readCache(cacheKey);
-    if (cached) {
-      return new Response(cached, {
-        headers: { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-TTS-Cache': 'HIT' },
-      });
+    if (!text || typeof text !== 'string') {
+      return c.json({ error: 'Missing required field: text' }, 400);
     }
 
-    ttsCacheMisses += 1;
-    const wav = await provider.synthesize(text, speaker, options);
-    writeCache(cacheKey, wav);
+    try {
+      const cacheKey = makeCacheKey(provider.name, text, speaker, options);
+      const contentType = provider.name === 'microsoft' ? 'audio/mpeg' : 'audio/wav';
 
-    return new Response(wav, {
-      headers: { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-TTS-Cache': 'MISS' },
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    return c.json({ error: message }, 500);
-  }
-});
+      const cached = readCache(cacheKey);
+      if (cached) {
+        return new Response(cached, {
+          headers: { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-TTS-Cache': 'HIT' },
+        });
+      }
+
+      ttsCacheMisses += 1;
+      const wav = await provider.synthesize(text, speaker, options);
+      writeCache(cacheKey, wav);
+
+      return new Response(wav, {
+        headers: { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-TTS-Cache': 'MISS' },
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return c.json({ error: message }, 500);
+    }
+  });
+}
 
 export default tts;

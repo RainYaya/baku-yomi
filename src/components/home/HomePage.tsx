@@ -10,6 +10,9 @@ import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
 import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
 import { VideoImportDialog } from '../import/VideoImportDialog';
 import { AddMaterialMenu } from '../import/AddMaterialMenu';
+import { ServerAudioDialog } from '../import/ServerAudioDialog';
+import { GenerateAudiobookDialog } from '../tts/GenerateAudiobookDialog';
+import type { Book } from '../../types';
 import { ThemeToggle } from '../../theme/ThemeToggle';
 import { buildTextBook } from '../../lib/import/textMaterial';
 import { sourceLabel, visibleBooks } from '../../lib/library/sources';
@@ -77,6 +80,8 @@ export function HomePage() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [serverAudioOpen, setServerAudioOpen] = useState(false);
+  const [generateAudioBookId, setGenerateAudioBookId] = useState<string | null>(null);
   const [collectionDialogBookId, setCollectionDialogBookId] = useState<string | null>(null);
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionTitle, setNewCollectionTitle] = useState('');
@@ -102,6 +107,16 @@ export function HomePage() {
 
   const handleEpubFile = (file: File) => {
     if (file.name.endsWith('.epub')) void parseFile(file);
+  };
+
+  const shelfIds = useMemo(() => new Set(allBooks.map((book) => book.id)), [allBooks]);
+
+  const handleServerAudio = (book: Book) => {
+    addBook(book);
+    setCurrentBook(book.id);
+    setCurrentChapter(0);
+    setCurrentView('reader');
+    setServerAudioOpen(false);
   };
 
   const handleSample = () => {
@@ -281,6 +296,7 @@ export function HomePage() {
             onGenerate={() => setGenerateOpen(true)}
             onSubtitle={() => setSubtitleOpen(true)}
             onVideo={() => setVideoOpen(true)}
+            onServerAudio={() => setServerAudioOpen(true)}
             onNote={() => setCurrentView('note')}
             uploading={parsing}
           />
@@ -315,6 +331,7 @@ export function HomePage() {
                   onGenerate={() => setGenerateOpen(true)}
                   onSubtitle={() => setSubtitleOpen(true)}
                   onVideo={() => setVideoOpen(true)}
+                  onServerAudio={() => setServerAudioOpen(true)}
                   onNote={() => setCurrentView('note')}
                   uploading={parsing}
                 />
@@ -373,6 +390,7 @@ export function HomePage() {
                     onGenerate={() => setGenerateOpen(true)}
                     onSubtitle={() => setSubtitleOpen(true)}
                     onVideo={() => setVideoOpen(true)}
+                    onServerAudio={() => setServerAudioOpen(true)}
                     onNote={() => setCurrentView('note')}
                     uploading={parsing}
                     variant="card"
@@ -507,7 +525,12 @@ export function HomePage() {
               ) : (
                 <div className="bookshelf-grid home-grid">
                   {library.slice(0, RECENT_LIMIT).map((book) => (
-                    <BookCard key={book.id} book={book} onOpen={() => openBook(book.id)} />
+                    <BookCard
+                      key={book.id}
+                      book={book}
+                      onOpen={() => openBook(book.id)}
+                      onGenerateAudio={setGenerateAudioBookId}
+                    />
                   ))}
                 </div>
               )}
@@ -547,6 +570,17 @@ export function HomePage() {
         open={videoOpen}
         onClose={() => setVideoOpen(false)}
         onFallbackSubtitle={() => setSubtitleOpen(true)}
+      />
+      <ServerAudioDialog
+        open={serverAudioOpen}
+        onClose={() => setServerAudioOpen(false)}
+        existingIds={shelfIds}
+        onImport={handleServerAudio}
+      />
+      <GenerateAudiobookDialog
+        open={generateAudioBookId !== null}
+        bookId={generateAudioBookId}
+        onClose={() => setGenerateAudioBookId(null)}
       />
       <PasteTextDialog
         open={collectionDialogBookId !== null}

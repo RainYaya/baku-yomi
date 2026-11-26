@@ -6,6 +6,7 @@ import { buildTextChapters } from '../lib/import/textMaterial';
 import { buildNoteChapter } from '../lib/note/chapter';
 import { normalizeNoteUrl } from '../lib/note/feed';
 import { createBookId } from '../lib/id';
+import { upsertBook as replaceInShelf } from '../lib/library/books';
 import { migrateBookPairIds } from '../lib/pairMigration';
 import { buildDemoLibrary } from '../lib/seed/demoLibrary';
 import { fetchLocalSeedLibrary } from '../lib/seed/localSeed';
@@ -32,6 +33,8 @@ interface BookState {
   seededAt: number | null;
 
   addBook: (book: Book) => void;
+  /** Add a book, or replace the one that already carries its id. */
+  upsertBook: (book: Book) => void;
   seedDemoLibrary: () => void;
   /** Adds books declared in the optional public/default-library.json. */
   loadLocalSeed: () => Promise<void>;
@@ -104,6 +107,15 @@ export const useBookStore = create<BookState>()(
       addBook: (book) =>
         set((state) => ({
           books: [...state.books, book],
+          currentBookId: book.id,
+          currentChapterIndex: 0,
+        })),
+
+      // Regenerating an audiobook produces the same id again; replace it so
+      // the shelf keeps one card and one current book.
+      upsertBook: (book) =>
+        set((state) => ({
+          books: replaceInShelf(state.books, book),
           currentBookId: book.id,
           currentChapterIndex: 0,
         })),

@@ -3264,6 +3264,7 @@
 }
 
 .paste-field input,
+.paste-field select,
 .paste-field textarea {
   width: 100%;
   border: 1px solid var(--rule-strong);
@@ -3274,6 +3275,15 @@
   font-size: 15px;
   line-height: 1.8;
   padding: 8px 10px;
+}
+
+.paste-field select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238d8272' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
 }
 
 .paste-field input {
@@ -7003,4 +7013,148 @@ button[data-saved='true'] {
   .saved-actions {
     justify-content: flex-start;
   }
+}
+
+/* ── Server audiobooks ──────────────────────────────────────────────────── */
+
+.server-audio-dialog {
+  width: min(580px, 100%);
+}
+
+.server-audio-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.server-audio-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--paper-2) 60%, transparent);
+}
+
+.server-audio-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--accent);
+}
+
+.server-audio-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.server-audio-copy b {
+  font-family: var(--font-reading);
+  font-size: 14px;
+}
+
+.server-audio-copy span {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.server-audio-note {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.server-audio-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 16px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--mid);
+}
+
+.server-audio-empty p {
+  margin: 0;
+}
+
+.server-audio-empty code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* ── Whole-book TTS generation ─────────────────────────────────────────── */
+
+.tts-dialog {
+  width: min(560px, 100%);
+}
+
+.tts-job {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--paper-2) 60%, transparent);
+}
+
+.tts-job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.tts-job-head b {
+  font-family: var(--font-reading);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.tts-job-voice {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.tts-progress {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--rule);
+  overflow: hidden;
+}
+
+.tts-progress span {
+  display: block;
+  height: 100%;
+  background: var(--red);
+  transition: width 0.3s ease;
+}
+
+.tts-added {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--red);
 }

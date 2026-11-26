@@ -8,6 +8,7 @@ import { GenerateMaterialDialog } from '../import/GenerateMaterialDialog';
 import { SubtitleImportDialog } from '../import/SubtitleImportDialog';
 import { VideoImportDialog } from '../import/VideoImportDialog';
 import { AddMaterialMenu } from '../import/AddMaterialMenu';
+import { GenerateAudiobookDialog } from '../tts/GenerateAudiobookDialog';
 import { booksInGroup, visibleBooks, type LibraryFilter } from '../../lib/library/sources';
 import { useNoteUnread } from '../../hooks/useNoteFeed';
 import { ThemeToggle } from '../../theme/ThemeToggle';
@@ -41,6 +42,7 @@ export function BookshelfPage() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [generateAudioBookId, setGenerateAudioBookId] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<LibraryFilter>('all');
 
   const totalPairs = useMemo(
@@ -300,7 +302,12 @@ export function BookshelfPage() {
           ) : (
             <div className="bookshelf-grid">
               {filteredBooks.map((book) => (
-                <BookCard key={book.id} book={book} onOpen={() => openBook(book.id)} />
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  onOpen={() => openBook(book.id)}
+                  onGenerateAudio={setGenerateAudioBookId}
+                />
               ))}
             </div>
           )}
@@ -314,6 +321,11 @@ export function BookshelfPage() {
         open={videoOpen}
         onClose={() => setVideoOpen(false)}
         onFallbackSubtitle={() => setSubtitleOpen(true)}
+      />
+      <GenerateAudiobookDialog
+        open={generateAudioBookId !== null}
+        bookId={generateAudioBookId}
+        onClose={() => setGenerateAudioBookId(null)}
       />
     </section>
   );
